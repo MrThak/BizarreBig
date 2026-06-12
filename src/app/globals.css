@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+:root {
+  --background: #02040a; /* True pitch black gamer background */
+  --foreground: #f8fafc; /* Slate-50 */
+  --card-bg: rgba(8, 12, 24, 0.7); /* Deep glassmorphic container */
+  --card-border: rgba(255, 255, 255, 0.06);
+  --neon-purple: #a78bfa;
+  --neon-cyan: #22d3ee;
+  --neon-pink: #f472b6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-plus-jakarta), var(--font-anuphan), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-plus-jakarta), var(--font-anuphan), sans-serif;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.07) 0%, transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.04) 0%, transparent 50%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 50px 50px, 50px 50px;
+  background-attachment: fixed;
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: rgba(6, 9, 20, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: rgba(8, 12, 24, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+}
+
+.glass-card:hover {
+  transform: translateY(-6px);
+  background: rgba(12, 18, 36, 0.85);
+  border-color: rgba(139, 92, 246, 0.35);
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 0, 0, 0.6),
+    0 0 25px -5px rgba(139, 92, 246, 0.25);
+}
+
+/* Custom glowing effects */
+.neon-glow-purple {
+  text-shadow: 0 0 10px rgba(167, 139, 250, 0.6), 0 0 25px rgba(139, 92, 246, 0.3);
+}
+
+.neon-glow-cyan {
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.6), 0 0 25px rgba(6, 182, 212, 0.3);
+}
+
+.neon-glow-pink {
+  text-shadow: 0 0 10px rgba(244, 114, 182, 0.6), 0 0 25px rgba(236, 72, 153, 0.3);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #02040a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #111827;
+  border-radius: 9999px;
+  border: 2px solid #02040a;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1f2937;
+}
+
+/* Micro-animations */
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 6s infinite ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Shiki Overrides for Premium Code look */
+.shiki {
+  background-color: transparent !important;
+  padding: 1.25rem !important;
+  margin: 0 !important;
+}
+
+.shiki code {
+  font-family: var(--font-geist-mono), monospace !important;
+  font-size: 0.8rem !important;
+  line-height: 1.6 !important;
+}
+
+/* Custom neon line underneath sections */
+.neon-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), rgba(6, 182, 212, 0.5), transparent);
+}
