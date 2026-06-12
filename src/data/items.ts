@@ -1,6 +1,6 @@
 export interface Item {
   id: string;
-  type: 'game' | 'anime';
+  type: 'game' | 'anime' | 'movie' | 'other';
   title: string;
   category: string;
   rating: number;
@@ -18,6 +18,42 @@ export const categories = {
   games: ['All', 'RPG', 'Action', 'Sci-Fi', 'Open World', 'Adventure'],
   anime: ['All', 'Action', 'Fantasy', 'Sci-Fi', 'Supernatural', 'Adventure']
 };
+
+export function mapDbItemToItem(dbItem: any): Item {
+  return {
+    id: dbItem.id,
+    type: dbItem.type as 'game' | 'anime',
+    title: dbItem.title,
+    category: dbItem.category,
+    rating: Number(dbItem.rating),
+    description: dbItem.description,
+    tags: dbItem.tags || [],
+    status: dbItem.status as 'Trending' | 'New' | 'Popular',
+    releaseYear: dbItem.release_year,
+    highlightCode: dbItem.highlight_code,
+    highlightLanguage: dbItem.highlight_language,
+    bgGradient: dbItem.bg_gradient,
+    image: dbItem.image
+  };
+}
+
+export function mapItemToDbItem(item: Item) {
+  return {
+    id: item.id,
+    type: item.type,
+    title: item.title,
+    category: item.category,
+    rating: item.rating,
+    description: item.description,
+    tags: item.tags,
+    status: item.status,
+    release_year: item.releaseYear,
+    highlight_code: item.highlightCode,
+    highlight_language: item.highlightLanguage,
+    bg_gradient: item.bgGradient,
+    image: item.image
+  };
+}
 
 export const items: Item[] = [
   {

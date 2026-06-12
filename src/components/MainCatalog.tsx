@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Item, categories } from "@/data/items";
 import { Hero } from "./Hero";
 import { ItemCard } from "./ItemCard";
@@ -10,34 +10,163 @@ interface MainCatalogProps {
 }
 
 export function MainCatalog({ initialItems }: MainCatalogProps) {
+  const [itemsList, setItemsList] = useState<(Item & { highlightHtml?: string })[]>(initialItems);
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "game" | "anime">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "game" | "anime" | "movie">("all");
   const [selectedCategory, setSelectedCategory] = useState("All");
+
+  const loadData = async () => {
+    try {
+      const res = await fetch("/api/items");
+      const data = await res.json();
+      if (data.success) {
+        let finalItems = data.items || [];
+        setDbCategories(data.categories || []);
+        
+        // 2. Load offline custom items
+        const offlineItemsStr = localStorage.getItem("bizarre_items");
+        if (offlineItemsStr) {
+          try {
+            const offlineItems = JSON.parse(offlineItemsStr) as (Item & { highlightHtml?: string })[];
+            if (offlineItems.length > 0) {
+              const offlineIds = new Set(offlineItems.map(item => item.id));
+              const filteredDbItems = finalItems.filter((item: any) => !offlineIds.has(item.id));
+              finalItems = [...offlineItems, ...filteredDbItems];
+            }
+          } catch (err) {
+            console.error("Failed to parse offline items", err);
+          }
+        }
+        
+        setItemsList(finalItems);
+      }
+    } catch (err) {
+      console.error("Failed to fetch live items, loading offline:", err);
+      const offlineItemsStr = localStorage.getItem("bizarre_items");
+      if (offlineItemsStr) {
+        try {
+          const offlineItems = JSON.parse(offlineItemsStr) as (Item & { highlightHtml?: string })[];
+          const offlineIds = new Set(offlineItems.map(item => item.id));
+          const filteredStatic = initialItems.filter(item => !offlineIds.has(item.id));
+          setItemsList([...offlineItems, ...filteredStatic]);
+        } catch (e) {
+          setItemsList(initialItems);
+        }
+      } else {
+        setItemsList(initialItems);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener("bizarre_db_sync", handleSync);
+    window.addEventListener("bizarre_auth_change", handleSync);
+    return () => {
+      window.removeEventListener("bizarre_db_sync", handleSync);
+      window.removeEventListener("bizarre_auth_change", handleSync);
+    };
+  }, [initialItems]);
+
+  // Resolve categories dynamically from dbCategories or fallbacks
+  const resolvedCats = useMemo(() => {
+    const fallback = {
+      games: ['All', 'RPG', 'Action', 'Sci-Fi', 'Open World', 'Adventure'],
+      anime: ['All', 'Action', 'Fantasy', 'Sci-Fi', 'Supernatural', 'Adventure'],
+      movies: ['All', 'Action', 'Sci-Fi', 'Comedy', 'Drama', 'Adventure']
+    };
+
+    const parseCategoriesList = (list: any[]) => {
+      const gamesCats = ['All'];
+      const animeCats = ['All'];
+      const movieCats = ['All'];
+
+      list.forEach(cat => {
+        let root = cat;
+        let limit = 10;
+        while (root.parent_id && limit > 0) {
+          const parent = list.find(c => c.id === root.parent_id);
+          if (!parent) break;
+          root = parent;
+          limit--;
+        }
+        
+        if (root.slug === 'game' || root.slug === 'games') {
+          if (cat.slug !== 'game' && cat.slug !== 'games') {
+            gamesCats.push(cat.name);
+          }
+        } else if (root.slug === 'anime') {
+          if (cat.slug !== 'anime') {
+            animeCats.push(cat.name);
+          }
+        } else if (root.slug === 'movie' || root.slug === 'movies') {
+          if (cat.slug !== 'movie' && cat.slug !== 'movies') {
+            movieCats.push(cat.name);
+          }
+        }
+      });
+
+      return {
+        games: gamesCats.length > 1 ? gamesCats : fallback.games,
+        anime: animeCats.length > 1 ? animeCats : fallback.anime,
+        movies: movieCats.length > 1 ? movieCats : fallback.movies
+      };
+    };
+
+    if (!dbCategories || dbCategories.length === 0) {
+      if (typeof window !== "undefined") {
+        const offlineCatsStr = localStorage.getItem("bizarre_categories");
+        if (offlineCatsStr) {
+          try {
+            const offlineCats = JSON.parse(offlineCatsStr);
+            if (offlineCats && offlineCats.length > 0) {
+              return parseCategoriesList(offlineCats);
+            }
+          } catch (e) {
+            console.error("Failed to parse offline categories", e);
+          }
+        }
+      }
+      return fallback;
+    }
+
+    return parseCategoriesList(dbCategories);
+  }, [dbCategories]);
 
   // Get dynamic categories list based on active tab
   const activeCategories = useMemo(() => {
-    // Reset selected category if we switch tabs and it is not supported in the new tab
     if (activeTab === "game") {
-      return categories.games;
+      return resolvedCats.games;
     } else if (activeTab === "anime") {
-      return categories.anime;
+      return resolvedCats.anime;
+    } else if (activeTab === "movie") {
+      return resolvedCats.movies;
     } else {
-      // Combined unique categories for "all"
-      const combined = new Set(["All", ...categories.games.slice(1), ...categories.anime.slice(1)]);
+      const combined = new Set([
+        "All", 
+        ...resolvedCats.games.slice(1), 
+        ...resolvedCats.anime.slice(1), 
+        ...resolvedCats.movies.slice(1)
+      ]);
       return Array.from(combined);
     }
-  }, [activeTab]);
+  }, [activeTab, resolvedCats]);
 
   // Handle tab switch
-  const handleTabChange = (tab: "all" | "game" | "anime") => {
+  const handleTabChange = (tab: "all" | "game" | "anime" | "movie") => {
     setActiveTab(tab);
     setSelectedCategory("All"); // Reset subcategory filter when switching main tab
   };
 
   // Filtered items computation
   const filteredItems = useMemo(() => {
-    return initialItems.filter((item) => {
-      // 1. Filter by Main Tab (Game / Anime)
+    return itemsList.filter((item) => {
+      // 1. Filter by Main Tab (Game / Anime / Movie)
       if (activeTab !== "all" && item.type !== activeTab) {
         return false;
       }
@@ -62,7 +191,7 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
 
       return true;
     });
-  }, [initialItems, activeTab, selectedCategory, searchQuery]);
+  }, [itemsList, activeTab, selectedCategory, searchQuery]);
 
   return (
     <>

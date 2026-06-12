@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 interface UserProfile {
@@ -226,6 +227,18 @@ export function Navbar() {
             {isMounted && (
               user ? (
                 <div className="flex items-center gap-3">
+                  {/* Admin Shortcut Button */}
+                  {user.role === "admin" && (
+                    <Link
+                      href="/admin"
+                      className="h-9 rounded-xl bg-violet-950/35 border border-violet-500/35 hover:border-violet-500/60 hover:bg-violet-950/50 text-violet-300 hover:text-white transition-all flex items-center gap-1.5 px-3.5 text-xs font-bold shadow-md shadow-violet-950/20 active:scale-[0.95]"
+                      title="เข้าสู่ระบบจัดการหลังบ้าน"
+                    >
+                      <span>⚙️</span>
+                      <span className="hidden md:inline">จัดการหลังบ้าน</span>
+                    </Link>
+                  )}
+
                   {/* Profile Details */}
                   <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] p-1.5 pr-3.5 rounded-full shadow-inner">
                     {/* Avatar */}

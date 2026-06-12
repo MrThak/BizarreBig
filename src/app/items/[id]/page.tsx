@@ -1,11 +1,12 @@
 import React from "react";
 import { codeToHtml } from "shiki";
-import { items, Item } from "@/data/items";
+import { items, Item, mapDbItemToItem } from "@/data/items";
 import { Navbar } from "@/components/Navbar";
 import { CommentSection } from "@/components/CommentSection";
 import { AdminConfigViewer } from "@/components/AdminConfigViewer";
+import { OfflineItemDetailFallback } from "@/components/OfflineItemDetailFallback";
+import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
 interface PageProps {
@@ -15,12 +16,30 @@ interface PageProps {
 // Generate dynamic metadata for SEO
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const item = items.find((i) => i.id === id);
+  let item = items.find((i) => i.id === id);
+
+  if (!item && isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("id", id)
+        .single();
+        
+      if (data && !error) {
+        item = mapDbItemToItem(data);
+      }
+    } catch (e) {
+      console.error("SEO Metadata: Error loading item from Supabase:", e);
+    }
+  }
+
   if (!item) {
     return {
-      title: "ไม่พบข้อมูล | BizarreBig",
+      title: "รายละเอียดเนื้อหา | BizarreBig",
     };
   }
+
   return {
     title: `${item.title} - รายละเอียด รีวิว และสเปกเทคนิค | BizarreBig`,
     description: item.description,
@@ -29,10 +48,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ItemDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const item = items.find((i) => i.id === id);
+  let item = items.find((i) => i.id === id);
 
+  // ดึงข้อมูลสดจาก Supabase หากเชื่อมต่อฐานข้อมูล
+  if (!item && isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("id", id)
+        .single();
+        
+      if (data && !error) {
+        item = mapDbItemToItem(data);
+      }
+    } catch (e) {
+      console.error("Error loading item from Supabase server side:", e);
+    }
+  }
+
+  // หากไม่พบไอเทมในทั้งโค้ด Static และ Supabase ให้ใช้ Fallback Client-side เช็ก LocalStorage
   if (!item) {
-    notFound();
+    return <OfflineItemDetailFallback id={id} />;
   }
 
   // Generate syntax highlighted html for the code block
@@ -48,6 +85,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
   }
 
   // Recommendations: 3 items of same type, excluding current one
+  // ดึงคำแนะนำจาก static items เบื้องต้น
   const recommendations = items
     .filter((i) => i.type === item.type && i.id !== item.id)
     .slice(0, 3);
@@ -56,6 +94,13 @@ export default async function ItemDetailPage({ params }: PageProps) {
     Trending: "bg-pink-500/10 text-pink-400 border-pink-500/20",
     New: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     Popular: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  };
+
+  const typeIcons = {
+    game: "🎮",
+    anime: "✨",
+    movie: "🎬",
+    other: "📁",
   };
 
   return (
@@ -72,7 +117,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
           </Link>
           <span>/</span>
           <span className="text-slate-400">
-            {item.type === "game" ? "เกม" : "อนิเมะ"}
+            {item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ"}
           </span>
           <span>/</span>
           <span className="text-violet-300 line-clamp-1">{item.title}</span>
@@ -105,6 +150,11 @@ export default async function ItemDetailPage({ params }: PageProps) {
                   {item.status}
                 </span>
                 <span className="text-xs text-slate-500 font-bold">ปีที่เปิดตัว: {item.releaseYear}</span>
+                {isSupabaseConfigured && (
+                  <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">
+                    ● Live ฐานข้อมูลจริง
+                  </span>
+                )}
               </div>
 
               <h1 className="text-3xl sm:text-5xl font-black text-white leading-tight">

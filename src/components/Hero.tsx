@@ -3,8 +3,8 @@ import React from "react";
 interface HeroProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  activeTab: "all" | "game" | "anime";
-  setActiveTab: (tab: "all" | "game" | "anime") => void;
+  activeTab: "all" | "game" | "anime" | "movie";
+  setActiveTab: (tab: "all" | "game" | "anime" | "movie") => void;
 }
 
 export function Hero({ searchQuery, setSearchQuery, activeTab, setActiveTab }: HeroProps) {
@@ -36,7 +36,7 @@ export function Hero({ searchQuery, setSearchQuery, activeTab, setActiveTab }: H
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ค้นหาเกม, อนิเมะ, หมวดหมู่ หรือแท็ก..."
+                placeholder="ค้นหาเกม, อนิเมะ, ภาพยนตร์, หมวดหมู่ หรือแท็ก..."
                 className="w-full h-12 pl-11 pr-10 rounded-2xl bg-slate-950/80 border border-white/[0.08] text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/20 hover:border-white/[0.15] transition-all duration-300 shadow-inner"
               />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm group-focus-within:text-violet-400 transition-colors duration-200">
@@ -56,7 +56,7 @@ export function Hero({ searchQuery, setSearchQuery, activeTab, setActiveTab }: H
             <div className="flex bg-slate-950/80 rounded-2xl p-1 border border-white/[0.08] shadow-inner shrink-0">
               <button
                 onClick={() => setActiveTab("all")}
-                className={`px-4.5 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 ${
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 ${
                   activeTab === "all"
                     ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(139,92,246,0.3)] scale-[1.02]"
                     : "text-slate-400 hover:text-slate-200"
@@ -66,7 +66,7 @@ export function Hero({ searchQuery, setSearchQuery, activeTab, setActiveTab }: H
               </button>
               <button
                 onClick={() => setActiveTab("game")}
-                className={`px-4.5 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1.5 ${
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1 ${
                   activeTab === "game"
                     ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(139,92,246,0.3)] scale-[1.02]"
                     : "text-slate-400 hover:text-slate-200"
@@ -76,13 +76,23 @@ export function Hero({ searchQuery, setSearchQuery, activeTab, setActiveTab }: H
               </button>
               <button
                 onClick={() => setActiveTab("anime")}
-                className={`px-4.5 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1.5 ${
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1 ${
                   activeTab === "anime"
                     ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(139,92,246,0.3)] scale-[1.02]"
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <span>✨</span> อนิเมะ
+              </button>
+              <button
+                onClick={() => setActiveTab("movie")}
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1 ${
+                  activeTab === "movie"
+                    ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_10px_rgba(139,92,246,0.3)] scale-[1.02]"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <span>🎬</span> ภาพยนตร์
               </button>
             </div>
           </div>
