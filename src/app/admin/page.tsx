@@ -1,28 +1,20 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Item, categories as defaultCategories, mapItemToDbItem, items as staticItems } from "@/data/items";
+import { Item, mapItemToDbItem, items as staticItems } from "@/data/items";
 import { Navbar } from "@/components/Navbar";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
-
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  parent_id: string | null;
-}
 
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [passcode, setPasscode] = useState("");
   const [passcodeError, setPasscodeError] = useState("");
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"items" | "categories">("items");
-  const [dbError, setDbError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"items" | "tags">("items");
 
   // Data states
   const [itemsList, setItemsList] = useState<Item[]>([]);
-  const [categoriesList, setCategoriesList] = useState<Category[]>([]);
+  const [dbError, setDbError] = useState<string | null>(null);
   
   // Modal states
   const [showItemModal, setShowItemModal] = useState(false);
@@ -31,22 +23,21 @@ export default function AdminPage() {
   // Item Form Fields
   const [itemId, setItemId] = useState("");
   const [itemTitle, setItemTitle] = useState("");
-  const [itemType, setItemType] = useState<"game" | "anime" | "movie" | "other">("game");
-  const [itemCategory, setItemCategory] = useState("");
+  
+  // Tag-based selection fields
+  const [hasGameTag, setHasGameTag] = useState(true);
+  const [hasAnimeTag, setHasAnimeTag] = useState(false);
+  const [hasMovieTag, setHasMovieTag] = useState(false);
+  const [otherTagsInput, setOtherTagsInput] = useState("");
+
   const [itemRating, setItemRating] = useState(9.0);
   const [itemDescription, setItemDescription] = useState("");
-  const [itemTags, setItemTags] = useState("");
   const [itemStatus, setItemStatus] = useState<"Trending" | "New" | "Popular">("New");
   const [itemReleaseYear, setItemReleaseYear] = useState(new Date().getFullYear());
   const [itemBgGradient, setItemBgGradient] = useState("from-violet-950/40 via-purple-950/20 to-slate-950");
   const [itemImage, setItemImage] = useState("");
   const [itemHighlightLanguage, setItemHighlightLanguage] = useState("json");
   const [itemHighlightCode, setItemHighlightCode] = useState("");
-  
-  // Category Form Fields
-  const [catName, setCatName] = useState("");
-  const [catSlug, setCatSlug] = useState("");
-  const [catParentId, setCatParentId] = useState("");
 
   const checkAuth = () => {
     const role = localStorage.getItem("bizarre_user_role");
@@ -63,39 +54,12 @@ export default function AdminPage() {
     };
   }, []);
 
-  const loadOfflineData = () => {
-    const savedItems = localStorage.getItem("bizarre_items");
-    if (savedItems) {
-      setItemsList(JSON.parse(savedItems));
-    } else {
-      setItemsList(staticItems);
-    }
-
-    const savedCats = localStorage.getItem("bizarre_categories");
-    if (savedCats) {
-      setCategoriesList(JSON.parse(savedCats));
-    } else {
-      const fallbackCats: Category[] = [
-        { id: "root-game", name: "เกม", slug: "game", parent_id: null },
-        { id: "root-anime", name: "อนิเมะ", slug: "anime", parent_id: null },
-        { id: "root-movie", name: "ภาพยนตร์", slug: "movie", parent_id: null },
-        { id: "game-rpg", name: "RPG", slug: "rpg", parent_id: "root-game" },
-        { id: "game-action", name: "Action", slug: "action", parent_id: "root-game" },
-        { id: "anime-action", name: "Action", slug: "anime-action", parent_id: "root-anime" },
-        { id: "anime-fantasy", name: "Fantasy", slug: "fantasy", parent_id: "root-anime" },
-      ];
-      setCategoriesList(fallbackCats);
-      localStorage.setItem("bizarre_categories", JSON.stringify(fallbackCats));
-    }
-  };
-
-  // Fetch items and categories
+  // Fetch items list
   const fetchData = async () => {
     if (!isAdmin) return;
 
     try {
       if (isSupabaseConfigured) {
-        // Items
         const { data: dbItems, error: itemErr } = await supabase
           .from("items")
           .select("*")
@@ -108,20 +72,7 @@ export default function AdminPage() {
           return;
         }
 
-        // Categories
-        const { data: dbCats, error: catErr } = await supabase
-          .from("categories")
-          .select("*")
-          .order("name", { ascending: true });
-
-        if (catErr) {
-          console.warn("Supabase query failed, falling back to offline mode:", catErr);
-          setDbError("ตาราง 'categories' ยังไม่ได้สร้างในระบบ Supabase กรุณารันสคริปต์ SQL บนแดชบอร์ดของคุณเพื่อใช้งานระบบเชื่อมต่อคลาวด์");
-          loadOfflineData();
-          return;
-        }
-
-        setDbError(null); // Clear error since queries succeeded
+        setDbError(null); // Clear error since query succeeded
 
         if (dbItems) {
           const formattedItems = dbItems.map((item: any) => ({
@@ -141,10 +92,6 @@ export default function AdminPage() {
           }));
           setItemsList(formattedItems);
         }
-
-        if (dbCats) {
-          setCategoriesList(dbCats);
-        }
       } else {
         loadOfflineData();
       }
@@ -155,11 +102,39 @@ export default function AdminPage() {
     }
   };
 
+  const loadOfflineData = () => {
+    const savedItems = localStorage.getItem("bizarre_items");
+    if (savedItems) {
+      setItemsList(JSON.parse(savedItems));
+    } else {
+      setItemsList(staticItems);
+    }
+  };
+
   useEffect(() => {
     if (isAdmin) {
       fetchData();
     }
   }, [isAdmin]);
+
+  // Dynamic tags analysis for the tags tab
+  const systemTags = useMemo(() => {
+    const tagCounts: { [key: string]: number } = {};
+    itemsList.forEach((item) => {
+      if (Array.isArray(item.tags)) {
+        item.tags.forEach((tag) => {
+          const trimmed = tag.trim();
+          if (trimmed) {
+            tagCounts[trimmed] = (tagCounts[trimmed] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    return Object.entries(tagCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'th'));
+  }, [itemsList]);
 
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,15 +153,25 @@ export default function AdminPage() {
   };
 
   const openItemModal = (item: Item | null = null) => {
+    const mainTypeTags = ["เกม", "game", "games", "อนิเมะ", "anime", "animes", "ภาพยนตร์", "ภาพยนต์", "movie", "movies"];
+    
     if (item) {
       setEditingItem(item);
       setItemId(item.id);
       setItemTitle(item.title);
-      setItemType(item.type);
-      setItemCategory(item.category);
+      
+      // Check main tags existence
+      const lowerTags = item.tags.map(t => t.toLowerCase().trim());
+      setHasGameTag(lowerTags.includes("เกม") || lowerTags.includes("game") || lowerTags.includes("games"));
+      setHasAnimeTag(lowerTags.includes("อนิเมะ") || lowerTags.includes("anime") || lowerTags.includes("animes"));
+      setHasMovieTag(lowerTags.includes("ภาพยนตร์") || lowerTags.includes("ภาพยนต์") || lowerTags.includes("movie") || lowerTags.includes("movies"));
+      
+      // Filter out main tags for the text input
+      const filteredOther = item.tags.filter(t => !mainTypeTags.includes(t.toLowerCase().trim()));
+      setOtherTagsInput(filteredOther.join(", "));
+
       setItemRating(item.rating);
       setItemDescription(item.description);
-      setItemTags(item.tags.join(", "));
       setItemStatus(item.status);
       setItemReleaseYear(item.releaseYear);
       setItemBgGradient(item.bgGradient || "from-violet-950/40 via-purple-950/20 to-slate-950");
@@ -197,14 +182,15 @@ export default function AdminPage() {
       setEditingItem(null);
       setItemId("");
       setItemTitle("");
-      setItemType("game");
-      setItemCategory("");
+      setHasGameTag(true);
+      setHasAnimeTag(false);
+      setHasMovieTag(false);
+      setOtherTagsInput("");
       setItemRating(9.0);
       setItemDescription("");
-      setItemTags("");
       setItemStatus("New");
       setItemReleaseYear(new Date().getFullYear());
-      setItemBgGradient("from-violet-950/40 via-purple-950/20 to-slate-950");
+      setItemBgGradient("from-amber-900/40 via-yellow-950/20 to-slate-950");
       setItemImage("");
       setItemHighlightLanguage("json");
       setItemHighlightCode("");
@@ -212,15 +198,20 @@ export default function AdminPage() {
     setShowItemModal(true);
   };
 
-  // Helper to suggest background gradient based on type
-  const handleTypeChange = (type: "game" | "anime" | "movie" | "other") => {
-    setItemType(type);
-    if (!itemBgGradient || itemBgGradient.startsWith("from-violet")) {
-      if (type === "game") {
+  const handleMainTagToggle = (tag: "game" | "anime" | "movie") => {
+    if (tag === "game") {
+      setHasGameTag(!hasGameTag);
+      if (!hasGameTag) {
         setItemBgGradient("from-amber-900/40 via-yellow-950/20 to-slate-950");
-      } else if (type === "anime") {
+      }
+    } else if (tag === "anime") {
+      setHasAnimeTag(!hasAnimeTag);
+      if (!hasAnimeTag) {
         setItemBgGradient("from-rose-950/40 via-red-950/20 to-slate-950");
-      } else if (type === "movie") {
+      }
+    } else if (tag === "movie") {
+      setHasMovieTag(!hasMovieTag);
+      if (!hasMovieTag) {
         setItemBgGradient("from-cyan-950/40 via-blue-950/20 to-slate-950");
       }
     }
@@ -233,10 +224,31 @@ export default function AdminPage() {
       return;
     }
 
-    const tagsArray = itemTags
+    // Combine main tags and typed tags
+    const finalTags: string[] = [];
+    if (hasGameTag) finalTags.push("เกม");
+    if (hasAnimeTag) finalTags.push("อนิเมะ");
+    if (hasMovieTag) finalTags.push("ภาพยนตร์");
+
+    const splitOthers = otherTagsInput
       .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    splitOthers.forEach((tag) => {
+      // Avoid duplicate tags
+      if (!finalTags.some(t => t.toLowerCase() === tag.toLowerCase())) {
+        finalTags.push(tag);
+      }
+    });
+
+    // Derive type and category columns for DB schema constraints
+    let derivedType: 'game' | 'anime' | 'movie' | 'other' = 'other';
+    if (hasGameTag) derivedType = 'game';
+    else if (hasAnimeTag) derivedType = 'anime';
+    else if (hasMovieTag) derivedType = 'movie';
+
+    const derivedCategory = splitOthers[0] || "General";
 
     // Call API /api/highlight to pre-highlight code
     let highlightHtml = "";
@@ -259,12 +271,12 @@ export default function AdminPage() {
 
     const itemData: Item & { highlightHtml?: string } = {
       id: itemId.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "-"),
-      type: itemType,
+      type: derivedType,
       title: itemTitle.trim(),
-      category: itemCategory.trim() || "General",
+      category: derivedCategory,
       rating: Number(itemRating),
       description: itemDescription.trim(),
-      tags: tagsArray,
+      tags: finalTags,
       status: itemStatus,
       releaseYear: Number(itemReleaseYear),
       bgGradient: itemBgGradient.trim(),
@@ -275,7 +287,6 @@ export default function AdminPage() {
     };
 
     if (isSupabaseConfigured && !dbError) {
-      // 1. Save to Supabase
       try {
         const dbReadyItem = mapItemToDbItem(itemData);
         
@@ -294,7 +305,6 @@ export default function AdminPage() {
         }
 
         if (error) throw error;
-        
         alert(editingItem ? "แก้ไขเนื้อหาบนฐานข้อมูลสำเร็จ! ✨" : "สร้างเนื้อหาใหม่บนฐานข้อมูลสำเร็จ! ➕");
       } catch (err: any) {
         console.error("Error saving item to Supabase:", err);
@@ -302,15 +312,13 @@ export default function AdminPage() {
         return;
       }
     } else {
-      // 2. Save to LocalStorage
+      // LocalStorage
       const currentOffline = localStorage.getItem("bizarre_items");
       let list: any[] = currentOffline ? JSON.parse(currentOffline) : [];
       
-      // If editingItem, delete old one from list first
       if (editingItem) {
         list = list.filter((i) => i.id !== editingItem.id);
       } else {
-        // Prevent duplicate IDs in offline mode
         const exists = list.some((i) => i.id === itemData.id);
         if (exists) {
           alert("ไอดี URL นี้ซ้ำในระบบออฟไลน์ กรุณาใช้ไอดีอื่น!");
@@ -356,113 +364,6 @@ export default function AdminPage() {
 
     fetchData();
     window.dispatchEvent(new Event("bizarre_db_sync"));
-  };
-
-  const handleCreateCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!catName.trim() || !catSlug.trim()) {
-      alert("กรุณากรอกชื่อหมวดหมู่และสลัก!");
-      return;
-    }
-
-    const newCat = {
-      name: catName.trim(),
-      slug: catSlug.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "-"),
-      parent_id: catParentId || null
-    };
-
-    if (isSupabaseConfigured && !dbError) {
-      try {
-        const { error } = await supabase
-          .from("categories")
-          .insert([newCat]);
-
-        if (error) throw error;
-        alert("สร้างหมวดหมู่ในฐานข้อมูลสำเร็จ!");
-      } catch (err: any) {
-        console.error("Failed to save category in Supabase:", err);
-        alert("สร้างหมวดหมู่ล้มเหลว: " + err.message);
-        return;
-      }
-    } else {
-      const currentOffline = localStorage.getItem("bizarre_categories");
-      const list = currentOffline ? JSON.parse(currentOffline) : [];
-      
-      const exists = list.some((c: any) => c.slug === newCat.slug);
-      if (exists) {
-        alert("สลักหมวดหมู่นี้ซ้ำในระบบออฟไลน์!");
-        return;
-      }
-
-      const categoryObj = {
-        id: Math.random().toString(36).substring(2, 9),
-        ...newCat
-      };
-      list.push(categoryObj);
-      localStorage.setItem("bizarre_categories", JSON.stringify(list));
-      alert("สร้างหมวดหมู่ออฟไลน์สำเร็จ!");
-    }
-
-    setCatName("");
-    setCatSlug("");
-    setCatParentId("");
-    fetchData();
-    window.dispatchEvent(new Event("bizarre_db_sync"));
-  };
-
-  const handleDeleteCategory = async (id: string) => {
-    if (!confirm("การลบหมวดหมู่นี้จะลบหมวดหมู่ย่อยทั้งหมดที่ซ้อนอยู่ภายใต้หมวดหมู่นี้ด้วย คุณแน่ใจหรือไม่?")) return;
-
-    if (isSupabaseConfigured && !dbError) {
-      try {
-        const { error } = await supabase
-          .from("categories")
-          .delete()
-          .eq("id", id);
-
-        if (error) throw error;
-        alert("ลบหมวดหมู่สำเร็จ!");
-      } catch (err: any) {
-        console.error("Failed to delete category:", err);
-        alert("ลบล้มเหลว: " + err.message);
-        return;
-      }
-    } else {
-      const currentOffline = localStorage.getItem("bizarre_categories");
-      if (currentOffline) {
-        // Recursive deletion fallback for offline nesting:
-        let list = JSON.parse(currentOffline) as Category[];
-        
-        const getChildIds = (parentId: string): string[] => {
-          const children = list.filter((c) => c.parent_id === parentId);
-          let ids = children.map((c) => c.id);
-          children.forEach((c) => {
-            ids = [...ids, ...getChildIds(c.id)];
-          });
-          return ids;
-        };
-
-        const idsToDelete = [id, ...getChildIds(id)];
-        list = list.filter((c) => !idsToDelete.includes(c.id));
-        
-        localStorage.setItem("bizarre_categories", JSON.stringify(list));
-        alert("ลบหมวดหมู่และหมวดหมู่ย่อยออฟไลน์สำเร็จ!");
-      }
-    }
-
-    fetchData();
-    window.dispatchEvent(new Event("bizarre_db_sync"));
-  };
-
-  // Get human readable parent category name
-  const getParentName = (parentId: string | null) => {
-    if (!parentId) return "-";
-    try {
-      const found = categoriesList.find((c) => c.id === parentId);
-      return found ? `${found.name} (${found.slug})` : "-";
-    } catch (e) {
-      return "-";
-    }
   };
 
   if (!isMounted) {
@@ -527,7 +428,7 @@ export default function AdminPage() {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <h1 className="text-2xl font-black text-white tracking-tight">แผงควบคุมผู้ดูแลระบบ (Admin CMS Dashboard)</h1>
-              {isSupabaseConfigured ? (
+              {isSupabaseConfigured && !dbError ? (
                 <span className="px-2 py-0.5 text-[9px] font-black uppercase text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 rounded-md">
                   LIVE DATABASE
                 </span>
@@ -538,7 +439,7 @@ export default function AdminPage() {
               )}
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              จัดการบทความ รีวิว เกม อนิเมะ ภาพยนตร์ และจัดโครงสร้างหมวดหมู่แบบซ้อนลำดับชั้นได้ตามใจชอบ
+              จัดการเขียน แก้ไข และลบบล็อกบทความรีวิว รวมถึงดูจำนวนความนิยมของแท็กต่างๆ ในระบบได้อย่างอิสระ
             </p>
           </div>
 
@@ -562,7 +463,7 @@ export default function AdminPage() {
                 ระบบตรวจพบการตั้งค่า Supabase URL และ Key แต่การดึงข้อมูลจากตารางขัดข้อง ({dbError})
               </p>
               <p className="text-slate-400 font-bold mt-1 text-[10px]">
-                💡 วิธีแก้ไข: กรุณาคัดลอกสคริปต์ SQL จากไฟล์ <code className="text-white bg-slate-900 px-1 py-0.5 rounded font-mono">dynamic_schema.sql</code> ไปวางและรัน (Run) ใน SQL Editor ของ Supabase
+                💡 วิธีแก้ไข: กรุณาคัดลอกสคริปต์ SQL จากไฟล์ <code className="text-white bg-slate-900 px-1 py-0.5 rounded font-mono">dynamic_schema.sql</code> ไปวางและรัน (Run) ใน SQL Editor ของ Supabase เพื่อเปิดใช้ระบบออนไลน์
               </p>
               <p className="text-emerald-400 font-black mt-1.5 text-[10px] uppercase">
                 ⚙️ โหมดชั่วคราว: กำลังทำงานและเซฟข้อมูลในโหมดออฟไลน์ (LocalStorage) แทนชั่วคราวเพื่อป้องกันระบบขัดข้อง
@@ -584,14 +485,14 @@ export default function AdminPage() {
             📚 จัดการบล็อก/รีวิว ({itemsList.length})
           </button>
           <button
-            onClick={() => setActiveTab("categories")}
+            onClick={() => setActiveTab("tags")}
             className={`px-5 py-3 text-xs font-bold border-b-2 transition-all ${
-              activeTab === "categories"
+              activeTab === "tags"
                 ? "border-violet-500 text-white"
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
-            🏷️ จัดการหมวดหมู่ ({categoriesList.length})
+            🏷️ แท็กทั้งหมดในระบบ ({systemTags.length})
           </button>
         </div>
 
@@ -605,10 +506,9 @@ export default function AdminPage() {
                     <tr>
                       <th className="px-6 py-4">ปก</th>
                       <th className="px-6 py-4">ไอดี URL / ชื่อเรื่อง</th>
-                      <th className="px-6 py-4">ประเภท</th>
-                      <th className="px-6 py-4">หมวดหมู่หลัก</th>
                       <th className="px-6 py-4">คะแนน</th>
-                      <th className="px-6 py-4">สถานะ</th>
+                      <th className="px-6 py-4">แท็กทั้งหมด</th>
+                      <th className="px-6 py-4">ป้ายสถานะ</th>
                       <th className="px-6 py-4">เปิดตัวปี</th>
                       <th className="px-6 py-4 text-right">ดำเนินการ</th>
                     </tr>
@@ -635,11 +535,16 @@ export default function AdminPage() {
                             <span className="font-mono text-[9px] text-slate-500">{item.id}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-3.5 capitalize">
-                          {item.type === "game" ? "🎮 เกม" : item.type === "anime" ? "✨ อนิเมะ" : item.type === "movie" ? "🎬 หนัง" : "📁 อื่นๆ"}
-                        </td>
-                        <td className="px-6 py-3.5 text-cyan-400 font-bold">{item.category}</td>
                         <td className="px-6 py-3.5 font-bold text-amber-400">{item.rating.toFixed(1)}</td>
+                        <td className="px-6 py-3.5 max-w-xs">
+                          <div className="flex flex-wrap gap-1">
+                            {item.tags.map((tag) => (
+                              <span key={tag} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-900 border border-white/5 text-slate-400">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
                         <td className="px-6 py-3.5">
                           <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
                             item.status === "Trending" ? "bg-pink-950/40 text-pink-400 border border-pink-500/20" :
@@ -668,7 +573,7 @@ export default function AdminPage() {
                     ))}
                     {itemsList.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                           ไม่พบรายการข้อมูลในหน้านี้
                         </td>
                       </tr>
@@ -680,108 +585,33 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tab content 2: CATEGORIES */}
-        {activeTab === "categories" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            {/* Table Categories List (Col span 2) */}
-            <div className="lg:col-span-2 glass-panel overflow-hidden border border-white/[0.06] rounded-3xl bg-slate-950/20">
-              <div className="px-6 py-4 border-b border-white/[0.04]">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">ตารางแสดงหมวดหมู่ทั้งหมด</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-slate-300 text-xs">
-                  <thead className="bg-white/[0.01] border-b border-white/[0.04] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
-                    <tr>
-                      <th className="px-6 py-3">ชื่อหมวดหมู่</th>
-                      <th className="px-6 py-3">สลัก (Slug)</th>
-                      <th className="px-6 py-3">หมวดหมู่หลัก (Parent)</th>
-                      <th className="px-6 py-3 text-right">ดำเนินการ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {categoriesList.map((cat) => (
-                      <tr key={cat.id} className="hover:bg-white/[0.01]">
-                        <td className="px-6 py-3.5 font-bold text-white">{cat.name}</td>
-                        <td className="px-6 py-3.5 font-mono text-[10px] text-cyan-400">{cat.slug}</td>
-                        <td className="px-6 py-3.5 text-slate-400">{getParentName(cat.parent_id)}</td>
-                        <td className="px-6 py-3.5 text-right">
-                          <button
-                            onClick={() => handleDeleteCategory(cat.id)}
-                            className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/20 text-rose-400 transition-all active:scale-[0.95]"
-                          >
-                            ลบ 🗑️
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {categoriesList.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                          ไม่พบข้อมูลหมวดหมู่ในหน้านี้
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Quick Category Form Form (Col span 1) */}
-            <div className="glass-panel p-6 border border-white/[0.06] rounded-3xl bg-slate-950/20">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4 pb-2 border-b border-white/[0.04]">
-                สร้างหมวดหมู่ย่อยใหม่ 🏷️
-              </h3>
-              <form onSubmit={handleCreateCategory} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">ชื่อหมวดหมู่ย่อย (เช่น RPG หรือ Action)</label>
-                  <input
-                    type="text"
-                    value={catName}
-                    onChange={(e) => setCatName(e.target.value)}
-                    placeholder="ป้อนชื่อหมวดหมู่ย่อย..."
-                    className="w-full h-9 px-3 rounded-xl bg-slate-950 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">สลักภาษาอังกฤษ (Slug สำหรับลิงก์ URL)</label>
-                  <input
-                    type="text"
-                    value={catSlug}
-                    onChange={(e) => setCatSlug(e.target.value)}
-                    placeholder="เช่น rpg หรือ action-games..."
-                    className="w-full h-9 px-3 rounded-xl bg-slate-950 border border-white/[0.08] text-xs text-slate-200 font-mono focus:outline-none focus:border-violet-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">หมวดหมู่หลักชั้นบน (Parent Category)</label>
-                  <select
-                    value={catParentId}
-                    onChange={(e) => setCatParentId(e.target.value)}
-                    className="w-full h-9 px-2 rounded-xl bg-slate-950 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                  >
-                    <option value="">ไม่มี - ตั้งเป็นหมวดหมู่พ่อระดับสูงสุด</option>
-                    {categoriesList.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.slug})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
-                    💡 ระบบสนับสนุนการซ้อนหมวดหมู่ลึกไม่จำกัดชั้น (เช่น เกม → RPG → Action RPG) โดยการสร้างแล้วเลือกตัวเลือก Parent นี้
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full h-9 mt-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 transition-all border border-violet-500/20 active:scale-[0.98]"
+        {/* Tab content 2: DYNAMIC TAGS LIST */}
+        {activeTab === "tags" && (
+          <div className="glass-panel p-6 border border-white/[0.06] rounded-3xl bg-slate-950/20">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6 pb-2.5 border-b border-white/[0.04]">
+              รายการแท็กทั้งหมดที่ถูกใช้งาน (ประมวลผลสดจากบล็อกรีวิว)
+            </h3>
+            
+            <div className="flex flex-wrap gap-3">
+              {systemTags.map((tag) => (
+                <div
+                  key={tag.name}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-white/[0.06] shadow-sm hover:border-violet-500/40 transition-all"
                 >
-                  สร้างหมวดหมู่ใหม่ ➕
-                </button>
-              </form>
+                  <span className="text-xs font-bold text-slate-200">{tag.name}</span>
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-violet-950/40 border border-violet-500/20 text-violet-400">
+                    {tag.count} บล็อก
+                  </span>
+                </div>
+              ))}
+              
+              {systemTags.length === 0 && (
+                <p className="text-xs text-slate-500 py-6 text-center w-full">ยังไม่มีแท็กใด ๆ ในระบบ ณ ขณะนี้</p>
+              )}
+            </div>
+            
+            <div className="mt-8 p-4 rounded-xl bg-violet-950/10 border border-violet-900/20 text-xs text-violet-400 leading-relaxed max-w-2xl">
+              💡 <strong>ข้อแนะนำ:</strong> แท็กต่างๆ จะถูกคำนวณและแสดงผลโดยอัตโนมัติเมื่อมีการเขียนหรือบันทึกบล็อกรีวิวใหม่ คุณสามารถพิมพ์เพิ่มแท็กย่อยอื่นๆ เช่น <code className="text-white font-mono bg-violet-950/40 px-1 rounded">Action RPG</code>, <code className="text-white font-mono bg-violet-950/40 px-1 rounded">Sci-Fi</code> หรือแท็กใดๆ ก็ได้ภายในฟอร์มบทความ
             </div>
           </div>
         )}
@@ -829,62 +659,70 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 2: Type, Category, Rating */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ประเภทหลัก</label>
-                  <select
-                    value={itemType}
-                    onChange={(e) => handleTypeChange(e.target.value as any)}
-                    className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+              {/* Tag Toggles for Primary Classification */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2.5 tracking-wider">
+                  แท็กหลักของบล็อก (เลือกได้หลายหมวดหมู่พร้อมกัน)
+                </label>
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handleMainTagToggle("game")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                      hasGameTag
+                        ? "bg-amber-500/10 border-amber-500/40 text-amber-400 shadow-[0_0_15px_-5px_rgba(245,158,11,0.4)]"
+                        : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    <option value="game">🎮 เกม (Game)</option>
-                    <option value="anime">✨ อนิเมะ (Anime)</option>
-                    <option value="movie">🎬 ภาพยนตร์ (Movie)</option>
-                    <option value="other">📁 อื่นๆ (Other)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ชื่อหมวดหมู่ย่อย (เช่น RPG หรือ Fantasy)</label>
-                  <select
-                    value={itemCategory}
-                    onChange={(e) => setItemCategory(e.target.value)}
-                    className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                    required
+                    <span>🎮</span> เกม (Game)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMainTagToggle("anime")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                      hasAnimeTag
+                        ? "bg-rose-500/10 border-rose-500/40 text-rose-400 shadow-[0_0_15px_-5px_rgba(244,63,94,0.4)]"
+                        : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    <option value="">-- เลือกหมวดหมู่ย่อย --</option>
-                    {Array.isArray(categoriesList) && categoriesList
-                      .filter((c) => c && c.parent_id !== null)
-                      .map((c) => {
-                        let parentLabel = "-";
-                        try {
-                          const pName = getParentName(c.parent_id);
-                          if (pName) {
-                            parentLabel = pName.split(" ")[0];
-                          }
-                        } catch (e) {}
-                        return (
-                          <option key={c.id} value={c.name}>
-                            {c.name} ({parentLabel})
-                          </option>
-                        );
-                      })}
-                    {/* Fallback standard categories if empty */}
-                    {(!categoriesList || categoriesList.length === 0) && (
-                      <>
-                        <option value="RPG">RPG</option>
-                        <option value="Action">Action</option>
-                        <option value="Sci-Fi">Sci-Fi</option>
-                        <option value="Open World">Open World</option>
-                        <option value="Adventure">Adventure</option>
-                        <option value="Fantasy">Fantasy</option>
-                        <option value="Supernatural">Supernatural</option>
-                      </>
-                    )}
-                  </select>
+                    <span>✨</span> อนิเมะ (Anime)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMainTagToggle("movie")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                      hasMovieTag
+                        ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-400 shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]"
+                        : "bg-slate-900 border-white/5 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <span>🎬</span> ภาพยนตร์ (Movie)
+                  </button>
                 </div>
+                <p className="text-[9px] text-slate-500 mt-1.5">
+                  💡 บล็อกรีวิว 1 เรื่อง สามารถจัดเป็นได้หลายแท็ก (เช่น เป็นทั้งเกมและอนิเมะ) หรือไม่จัดอยู่ในหมวดหลักเลยก็ได้
+                </p>
+              </div>
 
+              {/* Input for all other Tags */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">
+                  แท็กอื่นๆ และหมวดหมู่ย่อยทั้งหมด (คั่นด้วยเครื่องหมายจุลภาค ,)
+                </label>
+                <input
+                  type="text"
+                  value={otherTagsInput}
+                  onChange={(e) => setOtherTagsInput(e.target.value)}
+                  placeholder="เช่น RPG, Action RPG, Open World, Sci-Fi, Dark Fantasy"
+                  className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
+                />
+                <p className="text-[9px] text-slate-500 mt-1">
+                  💡 แท็กเหล่านี้จะถูกนำไปใช้เป็นปุ่มตัวเลือกฟิลเตอร์ด้านล่างของหน้าหลักโดยอัตโนมัติ (เช่น Action RPG ถือว่าเป็น Tag)
+                </p>
+              </div>
+
+              {/* Row: Rating & Release Year */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">คะแนนรีวิว (0.0 - 10.0)</label>
                   <input
@@ -897,46 +735,6 @@ export default function AdminPage() {
                     className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
                     required
                   />
-                </div>
-              </div>
-
-              {/* Row 3: Description */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">บทนำอธิบายรีวิว (Description)</label>
-                <textarea
-                  rows={3}
-                  value={itemDescription}
-                  onChange={(e) => setItemDescription(e.target.value)}
-                  placeholder="เขียนเนื้อหาเกริ่นนำ ประเด็นเด่น ความประทับใจ..."
-                  className="w-full p-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 resize-none"
-                  required
-                />
-              </div>
-
-              {/* Row 4: Tags, Status, Year */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">แท็กย่อย (คั่นด้วยเครื่องหมายจุลภาค ,)</label>
-                  <input
-                    type="text"
-                    value={itemTags}
-                    onChange={(e) => setItemTags(e.target.value)}
-                    placeholder="เช่น Open World, Action RPG, Hardcore"
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ป้ายสถานะติดแอป</label>
-                  <select
-                    value={itemStatus}
-                    onChange={(e) => setItemStatus(e.target.value as any)}
-                    className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                  >
-                    <option value="New">New (ใหม่ล่าสุด)</option>
-                    <option value="Trending">Trending (มาแรงมาก)</option>
-                    <option value="Popular">Popular (ยอดนิยมสูงสุด)</option>
-                  </select>
                 </div>
 
                 <div>
@@ -951,10 +749,36 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Row 5: Spec/Config Language & Code */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ภาษาโค้ดสำหรับระบบ Shiki</label>
+              {/* Description */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">บทนำอธิบายรีวิว (Description)</label>
+                <textarea
+                  rows={3}
+                  value={itemDescription}
+                  onChange={(e) => setItemDescription(e.target.value)}
+                  placeholder="เขียนเนื้อหาเกริ่นนำ ประเด็นเด่น ความประทับใจ..."
+                  className="w-full p-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 resize-none"
+                  required
+                />
+              </div>
+
+              {/* Status & Shiki highlight language */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ป้ายสถานะติดแอป</label>
+                  <select
+                    value={itemStatus}
+                    onChange={(e) => setItemStatus(e.target.value as any)}
+                    className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="New">New (ใหม่ล่าสุด)</option>
+                    <option value="Trending">Trending (มาแรงมาก)</option>
+                    <option value="Popular">Popular (ยอดนิยมสูงสุด)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ภาษาโค้ดสำหรับไฮไลเตอร์ Shiki</label>
                   <select
                     value={itemHighlightLanguage}
                     onChange={(e) => setItemHighlightLanguage(e.target.value)}
@@ -968,18 +792,19 @@ export default function AdminPage() {
                     <option value="html">HTML</option>
                   </select>
                 </div>
+              </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">โค้ดสเปกระบบเทคนิค (YAML หรือ JSON)</label>
-                  <textarea
-                    rows={4}
-                    value={itemHighlightCode}
-                    onChange={(e) => setItemHighlightCode(e.target.value)}
-                    placeholder={itemHighlightLanguage === "json" ? `{\n  "systemRequirements": {\n    "os": "Windows 10/11",\n    "gpu": "RTX 3060"\n  }\n}` : `requirements:\n  os: "Windows 10/11"\n  gpu: "RTX 3060"`}
-                    className="w-full p-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
-                    required
-                  />
-                </div>
+              {/* Specs Code Box */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">โค้ดสเปกรวมถึงรายละเอียดทางเทคนิค (Specs / Tech Config)</label>
+                <textarea
+                  rows={4}
+                  value={itemHighlightCode}
+                  onChange={(e) => setItemHighlightCode(e.target.value)}
+                  placeholder={itemHighlightLanguage === "json" ? `{\n  "systemRequirements": {\n    "os": "Windows 10/11",\n    "gpu": "RTX 3060"\n  }\n}` : `requirements:\n  os: "Windows 10/11"\n  gpu: "RTX 3060"`}
+                  className="w-full p-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
+                  required
+                />
               </div>
 
               {/* Row 6: Image URL & BG Gradient */}

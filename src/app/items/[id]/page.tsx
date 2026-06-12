@@ -84,10 +84,18 @@ export default async function ItemDetailPage({ params }: PageProps) {
     highlightHtml = `<pre><code>${item.highlightCode}</code></pre>`;
   }
 
+  // Helper to check if two items share any main classification category
+  const sharesMainType = (a: Item, b: Item) => {
+    const mainTags = ["เกม", "อนิเมะ", "ภาพยนตร์", "ภาพยนต์"];
+    const aMain = a.tags.filter(t => mainTags.includes(t));
+    const bMain = b.tags.filter(t => mainTags.includes(t));
+    const hasSharedTag = aMain.some(t => bMain.includes(t));
+    return hasSharedTag || a.type === b.type;
+  };
+
   // Recommendations: 3 items of same type, excluding current one
-  // ดึงคำแนะนำจาก static items เบื้องต้น
   const recommendations = items
-    .filter((i) => i.type === item.type && i.id !== item.id)
+    .filter((i) => sharesMainType(item, i) && i.id !== item.id)
     .slice(0, 3);
 
   const statusColors = {
@@ -103,6 +111,10 @@ export default async function ItemDetailPage({ params }: PageProps) {
     other: "📁",
   };
 
+  // Extract combined category names for breadcrumb
+  const breadcrumbCategory = item.tags.filter(t => ["เกม", "อนิเมะ", "ภาพยนตร์", "ภาพยนต์"].includes(t)).join(" & ") || 
+    (item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ");
+
   return (
     <div className="flex flex-col min-h-screen bg-[#02040a]">
       {/* Sticky header navbar */}
@@ -117,7 +129,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
           </Link>
           <span>/</span>
           <span className="text-slate-400">
-            {item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ"}
+            {breadcrumbCategory}
           </span>
           <span>/</span>
           <span className="text-violet-300 line-clamp-1">{item.title}</span>

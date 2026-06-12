@@ -42,8 +42,11 @@ export function ItemCard({ item }: ItemCardProps) {
             {/* Badges layered over image */}
             <div className="absolute top-3 left-3 z-20 flex gap-2">
               <span className="text-[10px] font-bold px-2 py-1 rounded bg-black/60 border border-white/10 text-slate-100 flex items-center gap-1 backdrop-blur-md">
-                <span>{typeIcons[item.type]}</span>
-                <span>{item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ"}</span>
+                <span>{typeIcons[item.type] || "📁"}</span>
+                <span>
+                  {item.tags.filter(t => ["เกม", "อนิเมะ", "ภาพยนตร์", "ภาพยนต์"].includes(t)).join(" & ") || 
+                    (item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ")}
+                </span>
               </span>
             </div>
             

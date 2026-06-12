@@ -20,14 +20,33 @@ export const categories = {
 };
 
 export function mapDbItemToItem(dbItem: any): Item {
+  const tags = dbItem.tags || [];
+  const lowerTags = tags.map((t: string) => t.toLowerCase());
+
+  // Derive virtual type from tags
+  let type: 'game' | 'anime' | 'movie' | 'other' = 'other';
+  if (lowerTags.includes('เกม') || lowerTags.includes('game') || lowerTags.includes('games')) {
+    type = 'game';
+  } else if (lowerTags.includes('อนิเมะ') || lowerTags.includes('anime') || lowerTags.includes('animes')) {
+    type = 'anime';
+  } else if (lowerTags.includes('ภาพยนตร์') || lowerTags.includes('ภาพยนต์') || lowerTags.includes('movie') || lowerTags.includes('movies')) {
+    type = 'movie';
+  } else if (dbItem.type) {
+    type = dbItem.type as any;
+  }
+
+  // Derive virtual category from tags (first tag that is not type tag)
+  const typeTags = ['เกม', 'game', 'games', 'อนิเมะ', 'anime', 'animes', 'ภาพยนตร์', 'ภาพยนต์', 'movie', 'movies', 'other'];
+  const category = tags.find((t: string) => !typeTags.includes(t.toLowerCase())) || dbItem.category || 'General';
+
   return {
     id: dbItem.id,
-    type: dbItem.type as 'game' | 'anime',
+    type,
     title: dbItem.title,
-    category: dbItem.category,
+    category,
     rating: Number(dbItem.rating),
     description: dbItem.description,
-    tags: dbItem.tags || [],
+    tags,
     status: dbItem.status as 'Trending' | 'New' | 'Popular',
     releaseYear: dbItem.release_year,
     highlightCode: dbItem.highlight_code,
@@ -38,14 +57,25 @@ export function mapDbItemToItem(dbItem: any): Item {
 }
 
 export function mapItemToDbItem(item: Item) {
+  // Combine tags to make sure type and category are present in tags array
+  const mainTypeTag = item.type === 'game' ? 'เกม' : item.type === 'anime' ? 'อนิเมะ' : item.type === 'movie' ? 'ภาพยนตร์' : '';
+  const listTags = [...item.tags];
+  
+  if (mainTypeTag && !listTags.some(t => t.toLowerCase() === mainTypeTag.toLowerCase() || t.toLowerCase() === item.type.toLowerCase())) {
+    listTags.unshift(mainTypeTag);
+  }
+  if (item.category && item.category !== 'General' && !listTags.some(t => t.toLowerCase() === item.category.toLowerCase())) {
+    listTags.push(item.category);
+  }
+
   return {
     id: item.id,
     type: item.type,
     title: item.title,
-    category: item.category,
+    category: item.category || 'General',
     rating: item.rating,
     description: item.description,
-    tags: item.tags,
+    tags: listTags,
     status: item.status,
     release_year: item.releaseYear,
     highlight_code: item.highlightCode,
@@ -63,7 +93,7 @@ export const items: Item[] = [
     category: 'RPG',
     rating: 9.8,
     description: 'มหาศึกสายใยแห่งแหวนเอลเดน เกมแนว Action RPG สุดอลังการในโลกดาร์กแฟนตาซีจาก FromSoftware ร่วมสร้างสรรค์โดย George R. R. Martin',
-    tags: ['Dark Fantasy', 'Open World', 'Action RPG', 'Difficult'],
+    tags: ['เกม', 'RPG', 'Dark Fantasy', 'Open World', 'Action RPG', 'Difficult'],
     status: 'Popular',
     releaseYear: 2022,
     bgGradient: 'from-amber-900/40 via-yellow-950/20 to-slate-950',
@@ -96,7 +126,7 @@ export const items: Item[] = [
     category: 'Sci-Fi',
     rating: 9.2,
     description: 'ผจญภัยใน Night City นครแห่งอนาคตที่เต็มไปด้วยแสงสีนีออน การดัดแปลงร่างกาย และความขัดแย้งระหว่างองค์กรยักษ์ใหญ่ สวมบทบาทเป็น V รับบทเป็นทหารรับจ้างนอกกฎหมาย',
-    tags: ['Sci-Fi', 'Cyberpunk', 'Open World', 'Action RPG'],
+    tags: ['เกม', 'Sci-Fi', 'Cyberpunk', 'Open World', 'Action RPG'],
     status: 'Trending',
     releaseYear: 2020,
     bgGradient: 'from-cyan-900/40 via-blue-950/20 to-slate-950',
@@ -122,7 +152,7 @@ export const items: Item[] = [
     category: 'Adventure',
     rating: 9.0,
     description: 'เดินทางข้ามทวีป Teyvat เพื่อตามหาพี่น้องที่หายไปในเกม Open-world Action RPG สไตล์อนิเมะที่สวยงามและมีกลไกธาตุที่เป็นเอกลักษณ์',
-    tags: ['Anime RPG', 'Open World', 'Gacha', 'Adventure'],
+    tags: ['เกม', 'Adventure', 'Anime RPG', 'Open World', 'Gacha'],
     status: 'Popular',
     releaseYear: 2020,
     bgGradient: 'from-emerald-950/40 via-teal-950/20 to-slate-950',
@@ -150,7 +180,7 @@ export const items: Item[] = [
     category: 'Action',
     rating: 9.6,
     description: 'เรื่องราวของ คามาโดะ ทันจิโร่ เด็กหนุ่มผู้ผันตัวมาเป็นนักล่าอสูรเพื่อหาทางรักษาเนซึโกะ น้องสาวที่กลายเป็นอสูร โดดเด่นด้วยงานภาพระดับท็อปจาก ufotable',
-    tags: ['Dark Fantasy', 'Action', 'Shonen', 'Historical'],
+    tags: ['อนิเมะ', 'Action', 'Dark Fantasy', 'Shonen', 'Historical'],
     status: 'Popular',
     releaseYear: 2019,
     bgGradient: 'from-rose-950/40 via-red-950/20 to-slate-950',
@@ -174,7 +204,7 @@ export const items: Item[] = [
     category: 'Supernatural',
     rating: 9.5,
     description: 'อิตาโดริ ยูจิ นักเรียนมัธยมปลายผู้กลืนนิ้วต้องสาปของเรียวเมน สุคุนะ เข้าไป ทำให้ต้องเข้าสู่โลกของไสยเวทและการต่อสู้เพื่อปราบวิญญาณคำสาป',
-    tags: ['Supernatural', 'Action', 'Dark Fantasy', 'School'],
+    tags: ['อนิเมะ', 'Supernatural', 'Action', 'Dark Fantasy', 'School'],
     status: 'Trending',
     releaseYear: 2020,
     bgGradient: 'from-violet-950/40 via-purple-950/20 to-slate-950',
@@ -197,7 +227,7 @@ export const items: Item[] = [
     category: 'Sci-Fi',
     rating: 9.4,
     description: 'อนิเมะสปินออฟจากโลกของ Cyberpunk 2077 เล่าเรื่องของ David Martinez เด็กหนุ่มข้างถนนที่พยายามเอาชีวิตรอดใน Night City โดยผันตัวมาเป็น Edgerunner',
-    tags: ['Sci-Fi', 'Cyberpunk', 'Tragedy', 'Action'],
+    tags: ['อนิเมะ', 'Sci-Fi', 'Cyberpunk', 'Tragedy', 'Action'],
     status: 'Popular',
     releaseYear: 2022,
     bgGradient: 'from-yellow-950/40 via-amber-950/20 to-slate-950',
@@ -220,7 +250,7 @@ export const items: Item[] = [
     category: 'Fantasy',
     rating: 9.9,
     description: 'เรื่องราวบทสรุปหลังจากปราบราชาปีศาจสำเร็จ ฟรีเรน เมจเอลฟ์ผู้มีอายุยืนยาวได้เริ่มออกเดินทางครั้งใหม่เพื่อเรียนรู้หัวใจและเวลาอันแสนสั้นของมนุษย์',
-    tags: ['Fantasy', 'Adventure', 'Slice of Life', 'Emotional'],
+    tags: ['อนิเมะ', 'Fantasy', 'Adventure', 'Slice of Life', 'Emotional'],
     status: 'New',
     releaseYear: 2023,
     bgGradient: 'from-sky-950/40 via-indigo-950/20 to-slate-950',

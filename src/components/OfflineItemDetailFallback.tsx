@@ -125,7 +125,8 @@ export function OfflineItemDetailFallback({ id }: OfflineItemDetailFallbackProps
           </Link>
           <span>/</span>
           <span className="text-slate-400">
-            {item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ"}
+            {item.tags.filter(t => ["เกม", "อนิเมะ", "ภาพยนตร์", "ภาพยนต์"].includes(t)).join(" & ") || 
+              (item.type === "game" ? "เกม" : item.type === "anime" ? "อนิเมะ" : item.type === "movie" ? "ภาพยนตร์" : "อื่นๆ")}
           </span>
           <span>/</span>
           <span className="text-violet-300 line-clamp-1">{item.title}</span>

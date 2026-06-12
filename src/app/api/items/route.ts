@@ -8,10 +8,9 @@ export const revalidate = 0; // Disable cache for this dynamic API route
 export async function GET() {
   try {
     let itemsToProcess = [];
-    let categoriesList = [];
 
     if (isSupabaseConfigured) {
-      // 1. Fetch items
+      // 1. Fetch items from Supabase items table
       const { data: dbItems, error: itemsError } = await supabase
         .from("items")
         .select("*")
@@ -25,18 +24,6 @@ export async function GET() {
         itemsToProcess = dbItems.map(mapDbItemToItem);
       } else {
         itemsToProcess = staticItems;
-      }
-
-      // 2. Fetch categories
-      const { data: dbCategories, error: catError } = await supabase
-        .from("categories")
-        .select("*")
-        .order("name", { ascending: true });
-
-      if (catError) {
-        console.error("Failed to fetch categories from Supabase in API:", catError);
-      } else if (dbCategories) {
-        categoriesList = dbCategories;
       }
     } else {
       // โหมดออฟไลน์
@@ -66,7 +53,6 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       items: itemsWithHighlight,
-      categories: categoriesList,
       isOffline: !isSupabaseConfigured
     });
   } catch (error: any) {

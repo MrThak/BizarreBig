@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Item, categories } from "@/data/items";
+import { Item } from "@/data/items";
 import { Hero } from "./Hero";
 import { ItemCard } from "./ItemCard";
 
@@ -9,9 +9,40 @@ interface MainCatalogProps {
   initialItems: (Item & { highlightHtml?: string })[];
 }
 
+// Helper function to check if item belongs to a tab based on tags or type
+function matchTab(item: Item, tab: "all" | "game" | "anime" | "movie"): boolean {
+  if (tab === "all") return true;
+  const lowerTags = item.tags.map((t) => t.toLowerCase().trim());
+  if (tab === "game") {
+    return (
+      lowerTags.includes("เกม") ||
+      lowerTags.includes("game") ||
+      lowerTags.includes("games") ||
+      item.type === "game"
+    );
+  }
+  if (tab === "anime") {
+    return (
+      lowerTags.includes("อนิเมะ") ||
+      lowerTags.includes("anime") ||
+      lowerTags.includes("animes") ||
+      item.type === "anime"
+    );
+  }
+  if (tab === "movie") {
+    return (
+      lowerTags.includes("ภาพยนตร์") ||
+      lowerTags.includes("ภาพยนต์") ||
+      lowerTags.includes("movie") ||
+      lowerTags.includes("movies") ||
+      item.type === "movie"
+    );
+  }
+  return false;
+}
+
 export function MainCatalog({ initialItems }: MainCatalogProps) {
   const [itemsList, setItemsList] = useState<(Item & { highlightHtml?: string })[]>(initialItems);
-  const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "game" | "anime" | "movie">("all");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -22,7 +53,6 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
       const data = await res.json();
       if (data.success) {
         let finalItems = data.items || [];
-        setDbCategories(data.categories || []);
         
         // 2. Load offline custom items
         const offlineItemsStr = localStorage.getItem("bizarre_items");
@@ -73,89 +103,29 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
     };
   }, [initialItems]);
 
-  // Resolve categories dynamically from dbCategories or fallbacks
-  const resolvedCats = useMemo(() => {
-    const fallback = {
-      games: ['All', 'RPG', 'Action', 'Sci-Fi', 'Open World', 'Adventure'],
-      anime: ['All', 'Action', 'Fantasy', 'Sci-Fi', 'Supernatural', 'Adventure'],
-      movies: ['All', 'Action', 'Sci-Fi', 'Comedy', 'Drama', 'Adventure']
-    };
-
-    const parseCategoriesList = (list: any[]) => {
-      const gamesCats = ['All'];
-      const animeCats = ['All'];
-      const movieCats = ['All'];
-
-      list.forEach(cat => {
-        let root = cat;
-        let limit = 10;
-        while (root.parent_id && limit > 0) {
-          const parent = list.find(c => c.id === root.parent_id);
-          if (!parent) break;
-          root = parent;
-          limit--;
-        }
-        
-        if (root.slug === 'game' || root.slug === 'games') {
-          if (cat.slug !== 'game' && cat.slug !== 'games') {
-            gamesCats.push(cat.name);
-          }
-        } else if (root.slug === 'anime') {
-          if (cat.slug !== 'anime') {
-            animeCats.push(cat.name);
-          }
-        } else if (root.slug === 'movie' || root.slug === 'movies') {
-          if (cat.slug !== 'movie' && cat.slug !== 'movies') {
-            movieCats.push(cat.name);
-          }
+  // Get dynamic categories list (Filter Pills) based on active tab and tags present in matching items
+  const activeCategories = useMemo(() => {
+    const tagsSet = new Set<string>();
+    
+    itemsList.forEach((item) => {
+      // Check if item matches the active tab via tag helper
+      if (!matchTab(item, activeTab)) {
+        return;
+      }
+      
+      // Add tags
+      item.tags.forEach((tag) => {
+        // Exclude the main type tags and general tags to avoid duplicates
+        const mainTags = ["เกม", "game", "games", "อนิเมะ", "anime", "animes", "ภาพยนตร์", "ภาพยนต์", "movie", "movies", "other", "general"];
+        if (tag && !mainTags.includes(tag.toLowerCase().trim())) {
+          tagsSet.add(tag.trim());
         }
       });
+    });
 
-      return {
-        games: gamesCats.length > 1 ? gamesCats : fallback.games,
-        anime: animeCats.length > 1 ? animeCats : fallback.anime,
-        movies: movieCats.length > 1 ? movieCats : fallback.movies
-      };
-    };
-
-    if (!dbCategories || dbCategories.length === 0) {
-      if (typeof window !== "undefined") {
-        const offlineCatsStr = localStorage.getItem("bizarre_categories");
-        if (offlineCatsStr) {
-          try {
-            const offlineCats = JSON.parse(offlineCatsStr);
-            if (offlineCats && offlineCats.length > 0) {
-              return parseCategoriesList(offlineCats);
-            }
-          } catch (e) {
-            console.error("Failed to parse offline categories", e);
-          }
-        }
-      }
-      return fallback;
-    }
-
-    return parseCategoriesList(dbCategories);
-  }, [dbCategories]);
-
-  // Get dynamic categories list based on active tab
-  const activeCategories = useMemo(() => {
-    if (activeTab === "game") {
-      return resolvedCats.games;
-    } else if (activeTab === "anime") {
-      return resolvedCats.anime;
-    } else if (activeTab === "movie") {
-      return resolvedCats.movies;
-    } else {
-      const combined = new Set([
-        "All", 
-        ...resolvedCats.games.slice(1), 
-        ...resolvedCats.anime.slice(1), 
-        ...resolvedCats.movies.slice(1)
-      ]);
-      return Array.from(combined);
-    }
-  }, [activeTab, resolvedCats]);
+    const sortedTags = Array.from(tagsSet).sort((a, b) => a.localeCompare(b, 'th'));
+    return ["All", ...sortedTags];
+  }, [activeTab, itemsList]);
 
   // Handle tab switch
   const handleTabChange = (tab: "all" | "game" | "anime" | "movie") => {
@@ -166,14 +136,17 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
   // Filtered items computation
   const filteredItems = useMemo(() => {
     return itemsList.filter((item) => {
-      // 1. Filter by Main Tab (Game / Anime / Movie)
-      if (activeTab !== "all" && item.type !== activeTab) {
+      // 1. Filter by Main Tab (Game / Anime / Movie) via tag helper
+      if (!matchTab(item, activeTab)) {
         return false;
       }
 
-      // 2. Filter by Category Pill
+      // 2. Filter by Category Pill (checks tags array)
       if (selectedCategory !== "All") {
-        if (item.category.toLowerCase() !== selectedCategory.toLowerCase()) {
+        const hasCategoryTag = item.tags.some(
+          (t) => t.toLowerCase().trim() === selectedCategory.toLowerCase().trim()
+        );
+        if (!hasCategoryTag) {
           return false;
         }
       }
@@ -206,21 +179,23 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
       {/* Subcategory Filter & Grid Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Category Pills Navigation */}
-        <div className="flex flex-wrap gap-2 items-center justify-center mb-10 pb-4 border-b border-slate-900/60">
-          {activeCategories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
-                selectedCategory === category
-                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/40 shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]"
-                  : "bg-slate-950/40 border border-slate-900 text-slate-400 hover:text-slate-200 hover:border-slate-800"
-              }`}
-            >
-              {category === "All" ? "🏷️ ทั้งหมดในหมวดนี้" : category}
-            </button>
-          ))}
-        </div>
+        {activeCategories.length > 1 && (
+          <div className="flex flex-wrap gap-2 items-center justify-center mb-10 pb-4 border-b border-slate-900/60">
+            {activeCategories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
+                  selectedCategory === category
+                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/40 shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]"
+                    : "bg-slate-950/40 border border-slate-900 text-slate-400 hover:text-slate-200 hover:border-slate-800"
+                }`}
+              >
+                {category === "All" ? "🏷️ แท็กทั้งหมดในหมวดนี้" : category}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Catalog Info Count */}
         <div className="flex items-center justify-between mb-8">
@@ -235,7 +210,7 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
               onClick={() => setSelectedCategory("All")}
               className="text-xs text-violet-400 hover:text-violet-300 font-semibold"
             >
-              ล้างตัวกรองหมวดหมู่
+              ล้างตัวกรองแท็ก
             </button>
           )}
         </div>
