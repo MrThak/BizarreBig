@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
 
 interface UserProfile {
@@ -12,15 +13,15 @@ interface UserProfile {
 }
 
 export function Navbar() {
+  const pathname = usePathname();
+  const isAdminPage = pathname === "/admin";
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   
   // Modal states
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
   const [mockName, setMockName] = useState("");
   const [mockEmail, setMockEmail] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
 
   const syncUserFromStorage = () => {
     const role = localStorage.getItem("bizarre_user_role");
@@ -151,25 +152,6 @@ export function Navbar() {
     }
   };
 
-  const handlePasscodeLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPassword === "admin") {
-      localStorage.setItem("bizarre_user_role", "admin");
-      localStorage.setItem("bizarre_user_name", "ผู้ดูแลระบบ (Admin)");
-      localStorage.setItem("bizarre_user_email", "admin@bizarrebig.com");
-      localStorage.setItem("bizarre_user_avatar", "");
-      
-      syncUserFromStorage();
-      window.dispatchEvent(new Event("bizarre_auth_change"));
-      setShowLoginModal(false);
-      setAdminPassword("");
-      setErrorMsg("");
-      alert("ยินดีต้อนรับผู้ดูแลระบบ (Admin Passcode Auth)!");
-    } else {
-      setErrorMsg("รหัสผ่านไม่ถูกต้อง! ลองใช้อีกครั้ง");
-    }
-  };
-
   const handleLogout = async () => {
     if (isSupabaseConfigured) {
       const { data: { session } } = await supabase.auth.getSession();
@@ -196,8 +178,8 @@ export function Navbar() {
       <header className="sticky top-0 z-50 w-full glass-panel border-b border-white/[0.06] backdrop-blur-xl shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
-          <div 
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          <Link 
+            href="/"
             className="flex items-center gap-2.5 cursor-pointer group"
           >
             <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-400 flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(139,92,246,0.3)] group-hover:shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-all duration-300">
@@ -206,11 +188,11 @@ export function Navbar() {
             <span className="text-xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-200 via-fuchsia-300 to-cyan-200 group-hover:from-white group-hover:to-cyan-200 transition-all duration-300">
               BizarreBig
             </span>
-          </div>
+          </Link>
 
           {/* Right CTA */}
           <div className="flex items-center gap-3">
-            {isMounted && (
+            {isMounted && user?.role === "admin" && (
               <>
                 {isSupabaseConfigured ? (
                   <span className="hidden sm:inline-block px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 rounded-lg shadow-sm">
@@ -230,12 +212,14 @@ export function Navbar() {
                   {/* Admin Shortcut Button */}
                   {user.role === "admin" && (
                     <Link
-                      href="/admin"
+                      href={isAdminPage ? "/" : "/admin"}
                       className="h-9 rounded-xl bg-violet-950/35 border border-violet-500/35 hover:border-violet-500/60 hover:bg-violet-950/50 text-violet-300 hover:text-white transition-all flex items-center gap-1.5 px-3.5 text-xs font-bold shadow-md shadow-violet-950/20 active:scale-[0.95]"
-                      title="เข้าสู่ระบบจัดการหลังบ้าน"
+                      title={isAdminPage ? "กลับสู่หน้าเว็บหลัก" : "เข้าสู่ระบบจัดการหลังบ้าน"}
                     >
-                      <span>⚙️</span>
-                      <span className="hidden md:inline">จัดการหลังบ้าน</span>
+                      <span>{isAdminPage ? "🏠" : "⚙️"}</span>
+                      <span className="hidden md:inline">
+                        {isAdminPage ? "กลับสู่หน้าหลัก" : "จัดการหลังบ้าน"}
+                      </span>
                     </Link>
                   )}
 
@@ -270,10 +254,14 @@ export function Navbar() {
                   {/* Logout Button */}
                   <button 
                     onClick={handleLogout}
-                    className="p-2 h-9 w-9 rounded-xl bg-slate-900 border border-white/[0.06] text-slate-400 hover:text-rose-400 hover:border-rose-500/20 transition-all flex items-center justify-center active:scale-[0.95]"
+                    className="p-2 h-9 w-9 rounded-xl bg-slate-900 border border-white/[0.06] text-rose-500 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-950/20 transition-all flex items-center justify-center active:scale-[0.95]"
                     title="ออกจากระบบ"
                   >
-                    🚪
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
                   </button>
                 </div>
               ) : (
@@ -381,40 +369,6 @@ export function Navbar() {
                 )}
               </div>
 
-              {/* Divider */}
-              <div className="relative flex items-center justify-center my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/[0.06]"></div>
-                </div>
-                <span className="relative px-3 text-[9px] font-bold text-slate-500 bg-slate-950 uppercase tracking-widest">
-                  หรือใช้รหัสผ่าน
-                </span>
-              </div>
-
-              {/* Passcode Login Section */}
-              <form onSubmit={handlePasscodeLogin} className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  รหัสผ่านผู้ดูแลระบบ (Admin Passcode)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    placeholder="กรอกรหัสผ่าน (เริ่มต้นคือ admin)..."
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    className="flex-1 h-9 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3.5 h-9 rounded-xl text-[10px] font-bold text-white bg-slate-800 hover:bg-slate-700 transition-all border border-white/[0.06] active:scale-[0.98]"
-                  >
-                    เข้าใช้งาน 🔑
-                  </button>
-                </div>
-                {errorMsg && (
-                  <p className="text-[9px] text-rose-400 font-medium animate-pulse">{errorMsg}</p>
-                )}
-              </form>
             </div>
           </div>
         </div>

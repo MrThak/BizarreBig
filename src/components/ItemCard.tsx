@@ -8,6 +8,12 @@ interface ItemCardProps {
   item: Item & { highlightHtml?: string };
 }
 
+function stripHtml(html: string): string {
+  if (!html) return "";
+  // Simple regex to remove HTML tags cleanly
+  return html.replace(/<[^>]*>/g, "");
+}
+
 export function ItemCard({ item }: ItemCardProps) {
   // Status colors mapping
   const statusColors = {
@@ -67,24 +73,20 @@ export function ItemCard({ item }: ItemCardProps) {
           </h3>
 
           <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-3">
-            <span className="text-cyan-400">{item.category}</span>
-            <span>•</span>
-            <span>ปี {item.releaseYear}</span>
-          </div>
-
-          {/* Rating */}
-          <div className="flex items-center gap-1.5 mb-3.5">
-            <div className="flex text-amber-400 text-xs">
-              {"★".repeat(Math.round(item.rating / 2))}
-              {"☆".repeat(5 - Math.round(item.rating / 2))}
-            </div>
-            <span className="text-xs font-bold text-slate-200">{item.rating.toFixed(1)}</span>
-            <span className="text-[10px] text-slate-500 font-medium">/10</span>
+            {item.category && item.category !== "General" && (
+              <>
+                <span className="text-cyan-400">{item.category}</span>
+                {item.publishedAt && <span>•</span>}
+              </>
+            )}
+            {item.publishedAt && (
+              <span>เผยแพร่ {new Date(item.publishedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+            )}
           </div>
 
           {/* Description */}
           <p className="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-3">
-            {item.description}
+            {stripHtml(item.description)}
           </p>
 
           {/* Tags */}

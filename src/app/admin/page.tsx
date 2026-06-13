@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Item, mapItemToDbItem, items as staticItems } from "@/data/items";
 import { Navbar } from "@/components/Navbar";
 import { isSupabaseConfigured, supabase } from "@/utils/supabase";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -19,6 +20,7 @@ export default function AdminPage() {
   // Modal states
   const [showItemModal, setShowItemModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // Item Form Fields
   const [itemId, setItemId] = useState("");
@@ -28,12 +30,31 @@ export default function AdminPage() {
   const [hasGameTag, setHasGameTag] = useState(true);
   const [hasAnimeTag, setHasAnimeTag] = useState(false);
   const [hasMovieTag, setHasMovieTag] = useState(false);
-  const [otherTagsInput, setOtherTagsInput] = useState("");
+  const [otherTags, setOtherTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
 
-  const [itemRating, setItemRating] = useState(9.0);
+  const handleAddTag = () => {
+    const trimmed = newTagInput.trim();
+    if (!trimmed) return;
+    const tagsToAdd = trimmed.split(",")
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+    setOtherTags(prev => {
+      const next = [...prev];
+      tagsToAdd.forEach(tag => {
+        if (!next.some(t => t.toLowerCase() === tag.toLowerCase())) {
+          next.push(tag);
+        }
+      });
+      return next;
+    });
+    setNewTagInput("");
+  };
+
+  const [itemRating, setItemRating] = useState(10.0);
   const [itemDescription, setItemDescription] = useState("");
-  const [itemStatus, setItemStatus] = useState<"Trending" | "New" | "Popular">("New");
-  const [itemReleaseYear, setItemReleaseYear] = useState(new Date().getFullYear());
+  const [itemStatus, setItemStatus] = useState<"Trending" | "New" | "Popular" | "">("New");
+  const [itemPublishedAt, setItemPublishedAt] = useState("");
   const [itemBgGradient, setItemBgGradient] = useState("from-violet-950/40 via-purple-950/20 to-slate-950");
   const [itemImage, setItemImage] = useState("");
   const [itemHighlightLanguage, setItemHighlightLanguage] = useState("json");
@@ -80,11 +101,10 @@ export default function AdminPage() {
             type: item.type,
             title: item.title,
             category: item.category,
-            rating: Number(item.rating),
             description: item.description,
             tags: item.tags || [],
             status: item.status,
-            releaseYear: item.release_year,
+            publishedAt: item.published_at ?? undefined,
             highlightCode: item.highlight_code,
             highlightLanguage: item.highlight_language,
             bgGradient: item.bg_gradient,
@@ -168,12 +188,13 @@ export default function AdminPage() {
       
       // Filter out main tags for the text input
       const filteredOther = item.tags.filter(t => !mainTypeTags.includes(t.toLowerCase().trim()));
-      setOtherTagsInput(filteredOther.join(", "));
+      setOtherTags(filteredOther);
+      setNewTagInput("");
 
-      setItemRating(item.rating);
+      setItemRating(10.0);
       setItemDescription(item.description);
       setItemStatus(item.status);
-      setItemReleaseYear(item.releaseYear);
+      setItemPublishedAt(item.publishedAt ? item.publishedAt.slice(0, 10) : "");
       setItemBgGradient(item.bgGradient || "from-violet-950/40 via-purple-950/20 to-slate-950");
       setItemImage(item.image || "");
       setItemHighlightLanguage(item.highlightLanguage || "json");
@@ -185,16 +206,18 @@ export default function AdminPage() {
       setHasGameTag(true);
       setHasAnimeTag(false);
       setHasMovieTag(false);
-      setOtherTagsInput("");
-      setItemRating(9.0);
+      setOtherTags([]);
+      setNewTagInput("");
+      setItemRating(10.0);
       setItemDescription("");
       setItemStatus("New");
-      setItemReleaseYear(new Date().getFullYear());
+      setItemPublishedAt("");
       setItemBgGradient("from-amber-900/40 via-yellow-950/20 to-slate-950");
       setItemImage("");
       setItemHighlightLanguage("json");
       setItemHighlightCode("");
     }
+    setShowAdvanced(false);
     setShowItemModal(true);
   };
 
@@ -219,8 +242,8 @@ export default function AdminPage() {
 
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!itemId.trim() || !itemTitle.trim()) {
-      alert("กรุณากรอกไอดี URL และชื่อหัวข้อ!");
+    if (!itemTitle.trim()) {
+      alert("กรุณากรอกชื่อเรื่องบทความ!");
       return;
     }
 
@@ -230,17 +253,34 @@ export default function AdminPage() {
     if (hasAnimeTag) finalTags.push("อนิเมะ");
     if (hasMovieTag) finalTags.push("ภาพยนตร์");
 
-    const splitOthers = otherTagsInput
-      .split(",")
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
+    const splitOthers = [...otherTags];
+    const pendingTag = newTagInput.trim();
+    if (pendingTag && !splitOthers.some(t => t.toLowerCase() === pendingTag.toLowerCase())) {
+      splitOthers.push(pendingTag);
+    }
 
     splitOthers.forEach((tag) => {
+      const trimmed = tag.trim();
       // Avoid duplicate tags
-      if (!finalTags.some(t => t.toLowerCase() === tag.toLowerCase())) {
-        finalTags.push(tag);
+      if (trimmed && !finalTags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
+        finalTags.push(trimmed);
       }
     });
+
+    // Auto-generate itemId for new items using title + random suffix
+    let resolvedItemId = itemId.trim();
+    if (!editingItem) {
+      // Clean title for URL slug (support Thai & English alphanumeric)
+      const cleanTitle = itemTitle.trim()
+        .toLowerCase()
+        .replace(/[^a-zA-Z0-9ก-๙]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      resolvedItemId = (cleanTitle || "post") + "-" + randomSuffix;
+    } else {
+      resolvedItemId = editingItem.id;
+    }
 
     // Derive type and category columns for DB schema constraints
     let derivedType: 'game' | 'anime' | 'movie' | 'other' = 'other';
@@ -250,6 +290,18 @@ export default function AdminPage() {
 
     const derivedCategory = splitOthers[0] || "General";
 
+    // Auto-extract first inline pasted image as cover image if empty
+    let resolvedImage = itemImage.trim();
+    if (!resolvedImage) {
+      const match = itemDescription.match(/<img[^>]+src="([^">]+)"/);
+      if (match && match[1]) {
+        resolvedImage = match[1];
+      }
+    }
+
+    const finalHighlightCode = itemHighlightCode.trim() || "{}";
+    const finalHighlightLanguage = itemHighlightLanguage || "json";
+
     // Call API /api/highlight to pre-highlight code
     let highlightHtml = "";
     try {
@@ -257,8 +309,8 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: itemHighlightCode,
-          lang: itemHighlightLanguage
+          code: finalHighlightCode,
+          lang: finalHighlightLanguage
         })
       });
       const resData = await res.json();
@@ -270,19 +322,18 @@ export default function AdminPage() {
     }
 
     const itemData: Item & { highlightHtml?: string } = {
-      id: itemId.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "-"),
+      id: resolvedItemId,
       type: derivedType,
       title: itemTitle.trim(),
       category: derivedCategory,
-      rating: Number(itemRating),
       description: itemDescription.trim(),
       tags: finalTags,
-      status: itemStatus,
-      releaseYear: Number(itemReleaseYear),
-      bgGradient: itemBgGradient.trim(),
-      image: itemImage.trim(),
-      highlightLanguage: itemHighlightLanguage,
-      highlightCode: itemHighlightCode.trim(),
+      status: itemStatus || "New",
+      publishedAt: itemPublishedAt || new Date().toISOString().slice(0, 10),
+      bgGradient: itemBgGradient.trim() || "from-slate-900 via-violet-950/20 to-slate-950",
+      image: resolvedImage,
+      highlightLanguage: finalHighlightLanguage,
+      highlightCode: finalHighlightCode,
       highlightHtml: highlightHtml || undefined
     };
 
@@ -506,10 +557,9 @@ export default function AdminPage() {
                     <tr>
                       <th className="px-6 py-4">ปก</th>
                       <th className="px-6 py-4">ไอดี URL / ชื่อเรื่อง</th>
-                      <th className="px-6 py-4">คะแนน</th>
                       <th className="px-6 py-4">แท็กทั้งหมด</th>
                       <th className="px-6 py-4">ป้ายสถานะ</th>
-                      <th className="px-6 py-4">เปิดตัวปี</th>
+                      <th className="px-6 py-4">วันที่เผยแพร่</th>
                       <th className="px-6 py-4 text-right">ดำเนินการ</th>
                     </tr>
                   </thead>
@@ -535,7 +585,6 @@ export default function AdminPage() {
                             <span className="font-mono text-[9px] text-slate-500">{item.id}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-3.5 font-bold text-amber-400">{item.rating.toFixed(1)}</td>
                         <td className="px-6 py-3.5 max-w-xs">
                           <div className="flex flex-wrap gap-1">
                             {item.tags.map((tag) => (
@@ -554,7 +603,9 @@ export default function AdminPage() {
                             {item.status}
                           </span>
                         </td>
-                        <td className="px-6 py-3.5">{item.releaseYear}</td>
+                        <td className="px-6 py-3.5 text-slate-400 font-mono text-[10px]">
+                          {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : <span className="text-slate-600">—</span>}
+                        </td>
                         <td className="px-6 py-3.5 text-right space-x-1.5">
                           <button
                             onClick={() => openItemModal(item)}
@@ -573,7 +624,7 @@ export default function AdminPage() {
                     ))}
                     {itemsList.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                           ไม่พบรายการข้อมูลในหน้านี้
                         </td>
                       </tr>
@@ -628,41 +679,25 @@ export default function AdminPage() {
             </h3>
 
             <form onSubmit={handleSaveItem} className="space-y-6">
-              {/* Row 1: ID & Title */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">
-                    ไอดี URL ภาษาอังกฤษ (Unique ID เช่น elden-ring)
-                  </label>
-                  <input
-                    type="text"
-                    value={itemId}
-                    onChange={(e) => setItemId(e.target.value)}
-                    placeholder="เช่น elden-ring"
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
-                    disabled={!!editingItem}
-                    required
-                  />
-                  <p className="text-[9px] text-slate-500 mt-1">⚠️ ไอดีห้ามซ้ำ และไม่สามารถแก้ไขได้ในภายหลัง</p>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ชื่อเรื่องบทความ (Title)</label>
-                  <input
-                    type="text"
-                    value={itemTitle}
-                    onChange={(e) => setItemTitle(e.target.value)}
-                    placeholder="เช่น Elden Ring"
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-                    required
-                  />
-                </div>
+              {/* Row 1: Title Only */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">
+                  ชื่อเรื่องบทความ (Title)
+                </label>
+                <input
+                  type="text"
+                  value={itemTitle}
+                  onChange={(e) => setItemTitle(e.target.value)}
+                  placeholder="เช่น Elden Ring หรือดาบพิฆาตอสูร..."
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
+                  required
+                />
               </div>
 
               {/* Tag Toggles for Primary Classification */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2.5 tracking-wider">
-                  แท็กหลักของบล็อก (เลือกได้หลายหมวดหมู่พร้อมกัน)
+                  แท็กหลักของบทความ (เลือกได้มากกว่า 1 หมวดหมู่ หรือไม่เลือกเลยก็ยังได้)
                 </label>
                 <div className="flex flex-wrap gap-2.5">
                   <button
@@ -699,137 +734,176 @@ export default function AdminPage() {
                     <span>🎬</span> ภาพยนตร์ (Movie)
                   </button>
                 </div>
-                <p className="text-[9px] text-slate-500 mt-1.5">
-                  💡 บล็อกรีวิว 1 เรื่อง สามารถจัดเป็นได้หลายแท็ก (เช่น เป็นทั้งเกมและอนิเมะ) หรือไม่จัดอยู่ในหมวดหลักเลยก็ได้
-                </p>
               </div>
 
               {/* Input for all other Tags */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">
-                  แท็กอื่นๆ และหมวดหมู่ย่อยทั้งหมด (คั่นด้วยเครื่องหมายจุลภาค ,)
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  แท็กอื่นๆ และหมวดหมู่ย่อยทั้งหมด
                 </label>
-                <input
-                  type="text"
-                  value={otherTagsInput}
-                  onChange={(e) => setOtherTagsInput(e.target.value)}
-                  placeholder="เช่น RPG, Action RPG, Open World, Sci-Fi, Dark Fantasy"
-                  className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-                />
+
+                {/* Display existing tags as chips */}
+                <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-slate-950/40 border border-white/[0.04] min-h-[38px] items-center">
+                  {otherTags.length === 0 ? (
+                    <span className="text-[11px] text-slate-600 px-1.5">ยังไม่มีแท็กย่อย...</span>
+                  ) : (
+                    otherTags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-500/10 border border-violet-500/30 text-violet-300 flex items-center gap-1.5"
+                      >
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          onClick={() => setOtherTags(prev => prev.filter((_, i) => i !== idx))}
+                          className="hover:text-rose-400 text-slate-500 transition-colors font-sans text-xs focus:outline-none cursor-pointer"
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Input with "+" button */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                    placeholder="พิมพ์แท็ก เช่น Action RPG, Sci-Fi (กด Enter หรือคลิก + เพื่อเพิ่ม)"
+                    className="flex-1 h-10 px-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddTag}
+                    className="h-10 w-10 shrink-0 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold flex items-center justify-center border border-violet-500/30 active:scale-[0.95] transition-all cursor-pointer text-base"
+                    title="เพิ่มแท็ก"
+                  >
+                    +
+                  </button>
+                </div>
+
                 <p className="text-[9px] text-slate-500 mt-1">
-                  💡 แท็กเหล่านี้จะถูกนำไปใช้เป็นปุ่มตัวเลือกฟิลเตอร์ด้านล่างของหน้าหลักโดยอัตโนมัติ (เช่น Action RPG ถือว่าเป็น Tag)
+                  💡 แท็กย่อยที่เพิ่มจะช่วยในการคัดกรองเนื้อหา และถูกตรวจจับคำในหน้าสารบัญหลักโดยอัตโนมัติ
                 </p>
               </div>
 
-              {/* Row: Rating & Release Year */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">คะแนนรีวิว (0.0 - 10.0)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="10"
-                    value={itemRating}
-                    onChange={(e) => setItemRating(Number(e.target.value))}
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ปีที่วางจำหน่าย / เปิดตัว</label>
-                  <input
-                    type="number"
-                    value={itemReleaseYear}
-                    onChange={(e) => setItemReleaseYear(Number(e.target.value))}
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                    required
-                  />
-                </div>
+              {/* WYSIWYG Rich Text Editor for Content */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  เนื้อหาบทความรีวิว / บล็อก (สามารถจัดรูปแบบคล้าย Word และวางภาพได้ตรงๆ)
+                </label>
+                <RichTextEditor value={itemDescription} onChange={setItemDescription} />
               </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">บทนำอธิบายรีวิว (Description)</label>
-                <textarea
-                  rows={3}
-                  value={itemDescription}
-                  onChange={(e) => setItemDescription(e.target.value)}
-                  placeholder="เขียนเนื้อหาเกริ่นนำ ประเด็นเด่น ความประทับใจ..."
-                  className="w-full p-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 resize-none"
-                  required
-                />
-              </div>
+              {/* Collapsible Accordion for Advanced Technical Settings */}
+              <div className="border-t border-white/[0.04] pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="flex items-center justify-between w-full py-2.5 text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors border border-white/5 rounded-xl px-4 bg-slate-900/40"
+                >
+                  <span className="flex items-center gap-2">⚙️ ตั้งค่าทางเทคนิคเพิ่มเติม (ภาพหน้าปก, โค้ดสเปก และคลาสการ์ด)</span>
+                  <span>{showAdvanced ? "▲ ปิดการตั้งค่า" : "▼ เปิดการตั้งค่าเพิ่มเติม"}</span>
+                </button>
 
-              {/* Status & Shiki highlight language */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ป้ายสถานะติดแอป</label>
-                  <select
-                    value={itemStatus}
-                    onChange={(e) => setItemStatus(e.target.value as any)}
-                    className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                  >
-                    <option value="New">New (ใหม่ล่าสุด)</option>
-                    <option value="Trending">Trending (มาแรงมาก)</option>
-                    <option value="Popular">Popular (ยอดนิยมสูงสุด)</option>
-                  </select>
-                </div>
+                {showAdvanced && (
+                  <div className="space-y-6 pt-5 animate-fade-in">
+                    
+                    {/* Status Toggle */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ป้ายสถานะติดแอป</label>
+                      <select
+                        value={itemStatus}
+                        onChange={(e) => setItemStatus(e.target.value as any)}
+                        className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                      >
+                        <option value="New">New (ใหม่ล่าสุด)</option>
+                        <option value="Trending">Trending (มาแรงมาก)</option>
+                        <option value="Popular">Popular (ยอดนิยมสูงสุด)</option>
+                      </select>
+                    </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ภาษาโค้ดสำหรับไฮไลเตอร์ Shiki</label>
-                  <select
-                    value={itemHighlightLanguage}
-                    onChange={(e) => setItemHighlightLanguage(e.target.value)}
-                    className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
-                  >
-                    <option value="json">JSON</option>
-                    <option value="yaml">YAML</option>
-                    <option value="javascript">JavaScript</option>
-                    <option value="typescript">TypeScript</option>
-                    <option value="css">CSS</option>
-                    <option value="html">HTML</option>
-                  </select>
-                </div>
-              </div>
+                    {/* Published At Date Picker */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">
+                        วันที่เผยแพร่เนื้อหาบล็อก (Published Date)
+                      </label>
+                      <input
+                        type="date"
+                        value={itemPublishedAt}
+                        onChange={(e) => setItemPublishedAt(e.target.value)}
+                        className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500 font-mono [color-scheme:dark]"
+                      />
+                      <p className="text-[9px] text-slate-500 mt-1">
+                        💡 หากไม่กรอก ระบบจะใช้วันที่บันทึกข้อมูลวันนี้เป็นค่าเริ่มต้น
+                      </p>
+                    </div>
+                    
+                    {/* Row: Cover image URL & Background gradient style */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ลิงก์ภาพหน้าปกด้วย URL (ข้ามได้ ระบบจะดึงรูปแรกในเนื้อหาให้อัตโนมัติ)</label>
+                        <input
+                          type="text"
+                          value={itemImage}
+                          onChange={(e) => setItemImage(e.target.value)}
+                          placeholder="เช่น /images/elden-ring.png หรือ https://..."
+                          className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 font-mono"
+                        />
+                      </div>
 
-              {/* Specs Code Box */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">โค้ดสเปกรวมถึงรายละเอียดทางเทคนิค (Specs / Tech Config)</label>
-                <textarea
-                  rows={4}
-                  value={itemHighlightCode}
-                  onChange={(e) => setItemHighlightCode(e.target.value)}
-                  placeholder={itemHighlightLanguage === "json" ? `{\n  "systemRequirements": {\n    "os": "Windows 10/11",\n    "gpu": "RTX 3060"\n  }\n}` : `requirements:\n  os: "Windows 10/11"\n  gpu: "RTX 3060"`}
-                  className="w-full p-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
-                  required
-                />
-              </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">สีกราเดียนต์หลังการ์ด (CSS Gradients)</label>
+                        <input
+                          type="text"
+                          value={itemBgGradient}
+                          onChange={(e) => setItemBgGradient(e.target.value)}
+                          placeholder="เช่น from-rose-950/40 via-red-950/20 to-slate-950"
+                          className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500 font-mono"
+                        />
+                      </div>
+                    </div>
 
-              {/* Row 6: Image URL & BG Gradient */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ลิงก์ URL รูปภาพหน้าปก</label>
-                  <input
-                    type="text"
-                    value={itemImage}
-                    onChange={(e) => setItemImage(e.target.value)}
-                    placeholder="เช่น /images/elden-ring.png หรือ https://..."
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500"
-                  />
-                </div>
+                    {/* Row: Shiki syntax highlight lang & Specs code details */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ภาษาที่ใช้แสดงผลสเปกของโค้ด (Shiki Code Highlight)</label>
+                        <select
+                          value={itemHighlightLanguage}
+                          onChange={(e) => setItemHighlightLanguage(e.target.value)}
+                          className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                        >
+                          <option value="json">JSON</option>
+                          <option value="yaml">YAML</option>
+                          <option value="javascript">JavaScript</option>
+                          <option value="typescript">TypeScript</option>
+                          <option value="css">CSS</option>
+                          <option value="html">HTML</option>
+                        </select>
+                      </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">คลาสไล่สีหลังการ์ด (CSS Gradients)</label>
-                  <input
-                    type="text"
-                    value={itemBgGradient}
-                    onChange={(e) => setItemBgGradient(e.target.value)}
-                    placeholder="เช่น from-rose-950/40 via-red-950/20 to-slate-950"
-                    className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 font-mono"
-                  />
-                </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5 tracking-wider">ข้อมูลสเปกทางเทคนิคของอุปกรณ์ (Tech specs/Config JSON/YAML)</label>
+                        <textarea
+                          rows={4}
+                          value={itemHighlightCode}
+                          onChange={(e) => setItemHighlightCode(e.target.value)}
+                          placeholder={itemHighlightLanguage === "json" ? `{\n  "systemRequirements": {\n    "os": "Windows 10/11",\n    "gpu": "RTX 3060"\n  }\n}` : `requirements:\n  os: "Windows 10/11"\n  gpu: "RTX 3060"`}
+                          className="w-full p-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -856,7 +930,7 @@ export default function AdminPage() {
       {/* Footer */}
       <footer className="border-t border-white/[0.04] py-8 bg-slate-950/20 text-center mt-20">
         <p className="text-xs text-slate-500">
-          © {new Date().getFullYear()} BizarreBig. สร้างสรรค์ด้วยความหลงใหลในเกมและอนิเมะ
+          © {new Date().getFullYear()} BizarreBig.
         </p>
       </footer>
     </div>

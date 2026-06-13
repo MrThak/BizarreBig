@@ -90,6 +90,15 @@ body {
   background: #1f2937;
 }
 
+/* Hide scrollbar but keep scrollable (for filter bar) */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE/Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;             /* Chrome/Safari */
+}
+
 /* Micro-animations */
 @keyframes pulseGlow {
   0%, 100% {
@@ -139,3 +148,106 @@ body {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), rgba(6, 182, 212, 0.5), transparent);
 }
+
+/* Rich Text WYSIWYG Content Styling */
+.rich-text-content {
+  color: #cbd5e1; /* slate-300 */
+}
+
+.rich-text-content p {
+  margin-bottom: 1.25rem;
+  line-height: 1.7;
+}
+
+.rich-text-content p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-content strong, 
+.rich-text-content b {
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.rich-text-content em, 
+.rich-text-content i {
+  font-style: italic;
+  color: #e2e8f0;
+}
+
+.rich-text-content u {
+  text-decoration: underline;
+  text-decoration-color: var(--neon-purple);
+  text-underline-offset: 3px;
+}
+
+.rich-text-content s, 
+.rich-text-content strike {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
+.rich-text-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.rich-text-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.rich-text-content li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.rich-text-content li::marker {
+  color: var(--neon-purple);
+}
+
+.rich-text-content img {
+  max-width: 100%;
+  max-height: 480px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 16px;
+  margin: 1.5rem auto;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(139, 92, 246, 0.1);
+  transition: all 0.3s ease;
+}
+
+.rich-text-content img:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(139, 92, 246, 0.2);
+}
+
+.rich-text-content a {
+  color: var(--neon-purple);
+  text-decoration: underline;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.rich-text-content a:hover {
+  color: var(--neon-cyan);
+}
+
+.rich-text-content blockquote {
+  border-left: 4px solid var(--neon-purple);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  margin-bottom: 1.25rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+

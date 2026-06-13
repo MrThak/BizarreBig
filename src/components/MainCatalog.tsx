@@ -45,7 +45,8 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
   const [itemsList, setItemsList] = useState<(Item & { highlightHtml?: string })[]>(initialItems);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "game" | "anime" | "movie">("all");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isTagsExpanded, setIsTagsExpanded] = useState(false);
 
   const loadData = async () => {
     try {
@@ -54,18 +55,20 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
       if (data.success) {
         let finalItems = data.items || [];
         
-        // 2. Load offline custom items
-        const offlineItemsStr = localStorage.getItem("bizarre_items");
-        if (offlineItemsStr) {
-          try {
-            const offlineItems = JSON.parse(offlineItemsStr) as (Item & { highlightHtml?: string })[];
-            if (offlineItems.length > 0) {
-              const offlineIds = new Set(offlineItems.map(item => item.id));
-              const filteredDbItems = finalItems.filter((item: any) => !offlineIds.has(item.id));
-              finalItems = [...offlineItems, ...filteredDbItems];
+        // 2. Load offline custom items only if the database is in offline mode
+        if (data.isOffline) {
+          const offlineItemsStr = localStorage.getItem("bizarre_items");
+          if (offlineItemsStr) {
+            try {
+              const offlineItems = JSON.parse(offlineItemsStr) as (Item & { highlightHtml?: string })[];
+              if (offlineItems.length > 0) {
+                const offlineIds = new Set(offlineItems.map(item => item.id));
+                const filteredDbItems = finalItems.filter((item: any) => !offlineIds.has(item.id));
+                finalItems = [...offlineItems, ...filteredDbItems];
+              }
+            } catch (err) {
+              console.error("Failed to parse offline items", err);
             }
-          } catch (err) {
-            console.error("Failed to parse offline items", err);
           }
         }
         
@@ -130,7 +133,7 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
   // Handle tab switch
   const handleTabChange = (tab: "all" | "game" | "anime" | "movie") => {
     setActiveTab(tab);
-    setSelectedCategory("All"); // Reset subcategory filter when switching main tab
+    setSelectedTags([]); // Reset subcategory filter when switching main tab
   };
 
   // Filtered items computation
@@ -141,12 +144,13 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
         return false;
       }
 
-      // 2. Filter by Category Pill (checks tags array)
-      if (selectedCategory !== "All") {
-        const hasCategoryTag = item.tags.some(
-          (t) => t.toLowerCase().trim() === selectedCategory.toLowerCase().trim()
+      // 2. Filter by Category Pills (all selected tags must match)
+      if (selectedTags.length > 0) {
+        const itemLowerTags = item.tags.map(t => t.toLowerCase().trim());
+        const matchesAllTags = selectedTags.every(
+          (selTag) => itemLowerTags.includes(selTag.toLowerCase().trim())
         );
-        if (!hasCategoryTag) {
+        if (!matchesAllTags) {
           return false;
         }
       }
@@ -164,7 +168,7 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
 
       return true;
     });
-  }, [itemsList, activeTab, selectedCategory, searchQuery]);
+  }, [itemsList, activeTab, selectedTags, searchQuery]);
 
   return (
     <>
@@ -178,24 +182,87 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
 
       {/* Subcategory Filter & Grid Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Category Pills Navigation */}
+        {/* Category Filter Bar */}
         {activeCategories.length > 1 && (
-          <div className="flex flex-wrap gap-2 items-center justify-center mb-10 pb-4 border-b border-slate-900/60">
-            {activeCategories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
-                  selectedCategory === category
-                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/40 shadow-[0_0_15px_-5px_rgba(6,182,212,0.4)]"
-                    : "bg-slate-950/40 border border-slate-900 text-slate-400 hover:text-slate-200 hover:border-slate-800"
+          <div className="flex flex-col items-center mb-8">
+            <button
+              onClick={() => setIsTagsExpanded(!isTagsExpanded)}
+              className="group flex items-center gap-2.5 px-5 py-2 rounded-full text-xs font-bold text-slate-300 border border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/60 hover:text-white transition-all duration-300 shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer"
+            >
+              <span className="text-cyan-400 group-hover:scale-110 transition-transform">🏷️</span>
+              <span>{isTagsExpanded ? "ซ่อนแท็กทั้งหมด" : "แสดงแท็กทั้งหมด"}</span>
+              {selectedTags.length > 0 && (
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-400/20 text-cyan-300 font-semibold max-w-[200px] md:max-w-[400px] truncate">
+                  เลือกอยู่: {selectedTags.join(", ")}
+                </span>
+              )}
+              <svg
+                className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform duration-300 ${
+                  isTagsExpanded ? "rotate-180" : ""
                 }`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                viewBox="0 0 24 24"
               >
-                {category === "All" ? "🏷️ แท็กทั้งหมดในหมวดนี้" : category}
-              </button>
-            ))}
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {/* Expandable Tags Container */}
+            <div
+              className={`w-full overflow-hidden transition-all duration-500 ease-in-out ${
+                isTagsExpanded
+                  ? "max-h-[500px] opacity-100 mt-6"
+                  : "max-h-0 opacity-0 mt-0 pointer-events-none"
+              }`}
+            >
+              <div className="relative p-2.5 rounded-2xl bg-slate-950/25 border border-white/[0.03] backdrop-blur-sm">
+                <div className="flex flex-wrap gap-2 justify-center py-1 max-w-5xl mx-auto">
+                  {activeCategories.map((category) => {
+                    const isActive = category === "All"
+                      ? selectedTags.length === 0
+                      : selectedTags.includes(category);
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          if (category === "All") {
+                            setSelectedTags([]);
+                          } else {
+                            setSelectedTags((prev) =>
+                              prev.includes(category)
+                                ? prev.filter((t) => t !== category)
+                                : [...prev, category]
+                            );
+                          }
+                        }}
+                        className={`
+                          relative px-4 py-1.5 rounded-full text-[11px] font-bold
+                          tracking-wide transition-all duration-300 whitespace-nowrap cursor-pointer
+                          ${isActive
+                            ? "text-white border border-cyan-400/50 bg-gradient-to-r from-cyan-500/15 via-violet-500/10 to-cyan-500/15 shadow-[0_0_18px_-4px_rgba(6,182,212,0.5),inset_0_1px_0_rgba(255,255,255,0.08)]"
+                            : "text-slate-400 border border-white/[0.06] bg-slate-950/40 hover:text-slate-100 hover:border-slate-600/60 hover:bg-slate-900/60"
+                          }
+                        `}
+                      >
+                        {/* Active glow dot */}
+                        {isActive && (
+                          <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_2px_rgba(6,182,212,0.7)]" />
+                        )}
+                        {category === "All" ? "✦ ทั้งหมด" : category}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom separator line with glow */}
+            <div className="mt-6 w-full h-px bg-gradient-to-r from-transparent via-slate-800/80 to-transparent" />
           </div>
         )}
+
 
         {/* Catalog Info Count */}
         <div className="flex items-center justify-between mb-8">
@@ -205,9 +272,9 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
               พบ {filteredItems.length} รายการ
             </span>
           </h2>
-          {selectedCategory !== "All" && (
+          {selectedTags.length > 0 && (
             <button
-              onClick={() => setSelectedCategory("All")}
+              onClick={() => setSelectedTags([])}
               className="text-xs text-violet-400 hover:text-violet-300 font-semibold"
             >
               ล้างตัวกรองแท็ก
@@ -232,7 +299,7 @@ export function MainCatalog({ initialItems }: MainCatalogProps) {
             <button
               onClick={() => {
                 setSearchQuery("");
-                setSelectedCategory("All");
+                setSelectedTags([]);
                 setActiveTab("all");
               }}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all duration-200"

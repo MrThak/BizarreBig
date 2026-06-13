@@ -154,14 +154,20 @@ export default async function ItemDetailPage({ params }: PageProps) {
 
             {/* Core Info Header */}
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-violet-950/40 border border-violet-500/30 text-violet-300 tracking-wider uppercase">
-                  {item.category}
-                </span>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded border ${statusColors[item.status]}`}>
-                  {item.status}
-                </span>
-                <span className="text-xs text-slate-500 font-bold">ปีที่เปิดตัว: {item.releaseYear}</span>
+            <div className="flex flex-wrap items-center gap-3">
+                {item.category && item.category !== "General" && (
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-violet-950/40 border border-violet-500/30 text-violet-300 tracking-wider uppercase">
+                    {item.category}
+                  </span>
+                )}
+                {item.status && (
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded border ${statusColors[item.status]}`}>
+                    {item.status}
+                  </span>
+                )}
+                {item.publishedAt && (
+                  <span className="text-xs text-slate-500 font-bold">เผยแพร่: {new Date(item.publishedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                )}
                 {isSupabaseConfigured && (
                   <span className="text-[9px] font-bold text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-500/20">
                     ● Live ฐานข้อมูลจริง
@@ -172,22 +178,12 @@ export default async function ItemDetailPage({ params }: PageProps) {
               <h1 className="text-3xl sm:text-5xl font-black text-white leading-tight">
                 {item.title}
               </h1>
-
-              {/* Ratings */}
-              <div className="flex items-center gap-2 border-b border-white/[0.04] pb-4">
-                <div className="flex text-amber-400 text-sm">
-                  {"★".repeat(Math.round(item.rating / 2))}
-                  {"☆".repeat(5 - Math.round(item.rating / 2))}
-                </div>
-                <span className="text-sm font-bold text-slate-200">{item.rating.toFixed(1)}</span>
-                <span className="text-xs text-slate-500">/ 10 คะแนนผู้เล่น</span>
-              </div>
             </div>
 
-            {/* Description Paragraph */}
-            <div className="space-y-4 text-sm text-slate-300 leading-relaxed font-sans">
-              <h2 className="text-base font-bold text-white uppercase tracking-wider">บทนำรีวิวและประเด็นเด่น</h2>
-              <p className="whitespace-pre-wrap">{item.description}</p>
+            {/* Description Paragraph (WYSIWYG Rich Text HTML) */}
+            <div className="space-y-4 text-sm leading-relaxed font-sans">
+              <h2 className="text-base font-bold text-white uppercase tracking-wider mb-2.5 border-b border-white/[0.04] pb-2">เนื้อหาบทความ</h2>
+              <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: item.description }} />
             </div>
 
             {/* Tags Grid */}
@@ -202,21 +198,12 @@ export default async function ItemDetailPage({ params }: PageProps) {
               ))}
             </div>
 
-            {/* Shiki Code Viewer / Specs Section */}
-            <section className="space-y-4 pt-4">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚙️</span>
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-                  รายละเอียดคอนฟิกและข้อมูลสเปกเทคนิค (Tech Specs / Config)
-                </h2>
-              </div>
-              
-              <AdminConfigViewer 
-                highlightHtml={highlightHtml}
-                highlightLanguage={item.highlightLanguage}
-                code={item.highlightCode}
-              />
-            </section>
+            {/* Shiki Code Viewer / Specs Section — แสดงเฉพาะแอดมิน */}
+            <AdminConfigViewer 
+              highlightHtml={highlightHtml}
+              highlightLanguage={item.highlightLanguage}
+              code={item.highlightCode}
+            />
 
             {/* Interactive Comment System */}
             <CommentSection itemId={item.id} />
@@ -257,8 +244,11 @@ export default async function ItemDetailPage({ params }: PageProps) {
                           {rec.title}
                         </h3>
                         <div className="flex items-center gap-1">
-                          <span className="text-amber-400 text-[10px]">★</span>
-                          <span className="text-[10px] font-semibold text-slate-400">{rec.rating.toFixed(1)}</span>
+                          {rec.publishedAt ? (
+                            <span className="text-[10px] text-slate-500">{new Date(rec.publishedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short' })}</span>
+                          ) : (
+                            <span className="text-[10px] text-slate-600">—</span>
+                          )}
                         </div>
                       </div>
                     </Link>
@@ -269,19 +259,6 @@ export default async function ItemDetailPage({ params }: PageProps) {
               </div>
             </div>
 
-            {/* Quick Helper Panel */}
-            <div className="p-6 rounded-3xl border border-white/[0.04] bg-slate-950/10 text-xs text-slate-500 space-y-3">
-              <h3 className="font-bold text-slate-400">💡 คำแนะนำการใช้งาน</h3>
-              <p className="leading-relaxed">
-                ข้อมูลสเปกและความต้องการของระบบข้างต้นเป็นเพียงข้อมูลอ้างอิงเบื้องต้นจากผู้ผลิต คุณสามารถคอมเมนต์แชร์การตั้งค่าหรือสเปกที่คุ้มค่ากว่าเพิ่มเติมได้ที่กล่องข้อความด้านล่าง
-              </p>
-              <Link 
-                href="/" 
-                className="inline-flex items-center text-xs font-bold text-violet-400 hover:text-violet-300 gap-1 pt-1.5 transition-colors"
-              >
-                ← กลับสู่หน้าหลักสารบัญ
-              </Link>
-            </div>
           </aside>
 
         </div>
@@ -290,7 +267,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
       {/* Footer */}
       <footer className="border-t border-white/[0.04] py-8 bg-slate-950/20 text-center mt-20">
         <p className="text-xs text-slate-500">
-          © {new Date().getFullYear()} BizarreBig. สร้างสรรค์ด้วยความหลงใหลในเกมและอนิเมะ
+          © {new Date().getFullYear()} BizarreBig.
         </p>
       </footer>
     </div>
