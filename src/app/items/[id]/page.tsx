@@ -36,13 +36,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!item) {
     return {
-      title: "รายละเอียดเนื้อหา | BizarreBig",
+      title: "BizarreBig",
     };
   }
 
   return {
-    title: `${item.title} - รายละเอียด รีวิว และสเปกเทคนิค | BizarreBig`,
-    description: item.description,
+    title: `${item.title} | BizarreBig`,
   };
 }
 

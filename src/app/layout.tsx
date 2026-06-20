@@ -18,8 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BizarreBig - Game & Anime Hub",
-  description: "แหล่งรวมข้อมูลจัดหมวดหมู่และแนะนำเกมกับอนิเมะระดับพรีเมียม ในดีไซน์ Dark Theme หรูหราล้ำสมัย",
+  title: "BizarreBig",
   verification: {
     google: "-bTtf5JAYAHRDtPF0SZVz3vuqr8q3TgT_QpXzS6Sh-k",
   },
