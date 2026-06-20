@@ -121,13 +121,13 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       `}} />
 
       {/* Formatting Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-950/80 border-b border-white/[0.06] text-slate-300">
+      <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-950/80 border-b border-white/[0.06] text-slate-300">
         
         {/* Basic Text Formats */}
         <button
           type="button"
           onClick={() => executeCommand("bold")}
-          className="p-1 hover:bg-slate-800 rounded font-bold hover:text-white transition-all w-8 h-8 flex items-center justify-center border border-white/5 active:scale-95"
+          className="p-1 hover:bg-slate-800 rounded font-bold hover:text-white transition-all w-9 h-9 md:w-8 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 text-sm md:text-xs cursor-pointer"
           title="ตัวหนา (Bold)"
         >
           B
@@ -135,7 +135,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         <button
           type="button"
           onClick={() => executeCommand("italic")}
-          className="p-1 hover:bg-slate-800 rounded italic hover:text-white transition-all w-8 h-8 flex items-center justify-center border border-white/5 active:scale-95"
+          className="p-1 hover:bg-slate-800 rounded italic hover:text-white transition-all w-9 h-9 md:w-8 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 text-sm md:text-xs cursor-pointer"
           title="ตัวเอียง (Italic)"
         >
           I
@@ -143,7 +143,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         <button
           type="button"
           onClick={() => executeCommand("underline")}
-          className="p-1 hover:bg-slate-800 rounded underline hover:text-white transition-all w-8 h-8 flex items-center justify-center border border-white/5 active:scale-95"
+          className="p-1 hover:bg-slate-800 rounded underline hover:text-white transition-all w-9 h-9 md:w-8 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 text-sm md:text-xs cursor-pointer"
           title="ขีดเส้นใต้ (Underline)"
         >
           U
@@ -151,19 +151,19 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         <button
           type="button"
           onClick={() => executeCommand("strikeThrough")}
-          className="p-1 hover:bg-slate-800 rounded line-through hover:text-white transition-all w-8 h-8 flex items-center justify-center border border-white/5 active:scale-95"
+          className="p-1 hover:bg-slate-800 rounded line-through hover:text-white transition-all w-9 h-9 md:w-8 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 text-sm md:text-xs cursor-pointer"
           title="ขีดฆ่า (Strikethrough)"
         >
           S
         </button>
-
+ 
         <div className="w-px h-5 bg-white/[0.08] mx-1" />
-
+ 
         {/* List formatting */}
         <button
           type="button"
           onClick={() => executeCommand("insertUnorderedList")}
-          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2 h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-[10px]"
+          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2.5 h-9 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-xs md:text-[10px] cursor-pointer"
           title="รายการหัวข้อ (Bullet List)"
         >
           • รายการ
@@ -171,19 +171,19 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         <button
           type="button"
           onClick={() => executeCommand("insertOrderedList")}
-          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2 h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-[10px]"
+          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2.5 h-9 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-xs md:text-[10px] cursor-pointer"
           title="รายการตัวเลข (Numbered List)"
         >
           1. รายการ
         </button>
-
+ 
         <div className="w-px h-5 bg-white/[0.08] mx-1" />
-
+ 
         {/* Quotes & Links */}
         <button
           type="button"
           onClick={() => executeCommand("formatBlock", "<blockquote>")}
-          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2 h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-[10px]"
+          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2.5 h-9 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-xs md:text-[10px] cursor-pointer"
           title="อัญพจน์/คำพูด (Blockquote)"
         >
           ” อ้างอิง
@@ -195,15 +195,15 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             const url = prompt("กรุณาระบุ URL สำหรับแทรกลิงก์:");
             if (url) executeCommand("createLink", url);
           }}
-          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2 h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-[10px]"
+          className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2.5 h-9 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-xs md:text-[10px] cursor-pointer"
           title="แทรกลิงก์ (Insert Link)"
         >
           🔗 ลิงก์
         </button>
-
+ 
         {/* Image insertion */}
-        <label className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-2.5 h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-[10px] cursor-pointer">
-          📷 แทรตรูปภาพ
+        <label className="p-1 hover:bg-slate-800 rounded hover:text-white transition-all px-3 h-9 md:h-8 flex items-center justify-center border border-white/5 active:scale-95 font-semibold text-xs md:text-[10px] cursor-pointer">
+          📷 แทรกรูปภาพ
           <input
             type="file"
             accept="image/*"
@@ -211,19 +211,19 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             className="hidden"
           />
         </label>
-
-        <span className="text-[10px] text-slate-500 ml-auto mr-1 hidden sm:inline">
+ 
+        <span className="text-[10px] text-slate-500 ml-auto mr-1 hidden lg:inline">
           📋 สามารถกดวางภาพตรงๆ (Ctrl+V) เพื่ออัปโหลดด่วนได้เลย!
         </span>
       </div>
-
+ 
       {/* Editor Main Content Area */}
       <div
         ref={editorRef}
         contentEditable
         onInput={handleInput}
         onPaste={handlePaste}
-        className="editable-area p-4 min-h-[300px] max-h-[600px] overflow-y-auto focus:outline-none text-slate-200 leading-relaxed font-sans text-sm"
+        className="editable-area p-4 min-h-[300px] max-h-[600px] overflow-y-auto focus:outline-none text-slate-200 leading-relaxed font-sans text-base md:text-sm"
         style={{ outline: "none" }}
       />
     </div>

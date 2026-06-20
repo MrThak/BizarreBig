@@ -449,7 +449,7 @@ export default function AdminPage() {
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
                   placeholder="กรอกรหัสผ่านผู้ดูแลระบบ (Passcode)..."
-                  className="w-full h-11 px-4 rounded-xl bg-slate-950 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all text-center"
+                  className="w-full h-11 px-4 rounded-xl bg-slate-950 border border-white/[0.08] text-base md:text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all text-center"
                   required
                 />
                 {passcodeError && (
@@ -550,7 +550,8 @@ export default function AdminPage() {
         {/* Tab content 1: ITEMS */}
         {activeTab === "items" && (
           <div className="space-y-6">
-            <div className="glass-panel overflow-hidden border border-white/[0.06] rounded-3xl bg-slate-950/20">
+            {/* Desktop View: Table */}
+            <div className="hidden md:block glass-panel overflow-hidden border border-white/[0.06] rounded-3xl bg-slate-950/20">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-slate-300 text-xs">
                   <thead className="bg-white/[0.02] border-b border-white/[0.06] text-slate-400 font-bold uppercase tracking-wider text-[10px]">
@@ -609,13 +610,13 @@ export default function AdminPage() {
                         <td className="px-6 py-3.5 text-right space-x-1.5">
                           <button
                             onClick={() => openItemModal(item)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-slate-300 hover:text-white transition-all active:scale-[0.95]"
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-slate-300 hover:text-white transition-all active:scale-[0.95] cursor-pointer"
                           >
                             แก้ไข ✏️
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
-                            className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/20 text-rose-400 transition-all active:scale-[0.95]"
+                            className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/20 text-rose-400 transition-all active:scale-[0.95] cursor-pointer"
                           >
                             ลบ 🗑️
                           </button>
@@ -632,6 +633,75 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Mobile View: Cards */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+              {itemsList.map((item) => (
+                <div key={item.id} className="glass-panel p-4 border border-white/[0.06] rounded-2xl bg-slate-950/40 flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-16 h-12 rounded-lg border border-white/10 object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-12 rounded-lg bg-slate-900 border border-white/5 flex items-center justify-center text-[10px] text-slate-600 shrink-0">
+                        NO IMG
+                      </div>
+                    )}
+                    <div className="flex flex-col min-w-0 justify-center">
+                      <span className="font-bold text-white text-sm truncate">{item.title}</span>
+                      <span className="font-mono text-[9px] text-slate-500 truncate">{item.id}</span>
+                      <div className="mt-1">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                          item.status === "Trending" ? "bg-pink-950/40 text-pink-400 border border-pink-500/20" :
+                          item.status === "Popular" ? "bg-amber-950/40 text-amber-400 border border-amber-500/20" :
+                          "bg-emerald-950/40 text-emerald-400 border border-emerald-500/20"
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {item.tags.map((tag) => (
+                        <span key={tag} className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-slate-900 border border-white/5 text-slate-400">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center border-t border-white/[0.04] pt-2.5 mt-1">
+                    <span className="text-[9px] text-slate-500 font-mono">
+                      {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : "—"}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openItemModal(item)}
+                        className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all active:scale-[0.95] cursor-pointer"
+                      >
+                        แก้ไข ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/40 border border-rose-500/20 text-rose-400 text-xs font-bold transition-all active:scale-[0.95] cursor-pointer"
+                      >
+                        ลบ 🗑️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {itemsList.length === 0 && (
+                <div className="glass-panel p-8 text-center text-slate-500 rounded-2xl border border-white/[0.04]">
+                  ไม่พบรายการข้อมูลในหน้านี้
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -670,10 +740,10 @@ export default function AdminPage() {
 
       {/* Item Modal Form (Create / Edit Modal) */}
       {showItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowItemModal(false)} />
           
-          <div className="relative w-full max-w-3xl max-h-[85vh] bg-slate-950/95 border border-white/[0.08] rounded-3xl p-6 sm:p-8 shadow-[0_0_50px_rgba(139,92,246,0.15)] z-10 overflow-y-auto scrollbar-thin">
+          <div className="relative w-full h-full max-h-screen md:h-auto md:max-w-3xl md:max-h-[85vh] bg-slate-950/95 border-b md:border border-white/[0.08] rounded-none md:rounded-3xl p-5 sm:p-8 shadow-[0_0_50px_rgba(139,92,246,0.15)] z-10 overflow-y-auto scrollbar-thin">
             <h3 className="text-base font-extrabold text-white mb-6 border-b border-white/[0.04] pb-4">
               {editingItem ? "✏️ แก้ไขเนื้อหาบล็อกรีวิว" : "➕ เขียนบทความบล็อกรีวิวใหม่"}
             </h3>
@@ -689,7 +759,7 @@ export default function AdminPage() {
                   value={itemTitle}
                   onChange={(e) => setItemTitle(e.target.value)}
                   placeholder="เช่น Elden Ring หรือดาบพิฆาตอสูร..."
-                  className="w-full h-10 px-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
+                  className="w-full h-10 px-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
                   required
                 />
               </div>
@@ -778,7 +848,7 @@ export default function AdminPage() {
                       }
                     }}
                     placeholder="พิมพ์แท็ก เช่น Action RPG, Sci-Fi (กด Enter หรือคลิก + เพื่อเพิ่ม)"
-                    className="flex-1 h-10 px-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
+                    className="flex-1 h-10 px-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
                   />
                   <button
                     type="button"
@@ -823,7 +893,7 @@ export default function AdminPage() {
                       <select
                         value={itemStatus}
                         onChange={(e) => setItemStatus(e.target.value as any)}
-                        className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                        className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 focus:outline-none focus:border-violet-500"
                       >
                         <option value="New">New (ใหม่ล่าสุด)</option>
                         <option value="Trending">Trending (มาแรงมาก)</option>
@@ -840,7 +910,7 @@ export default function AdminPage() {
                         type="date"
                         value={itemPublishedAt}
                         onChange={(e) => setItemPublishedAt(e.target.value)}
-                        className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500 font-mono [color-scheme:dark]"
+                        className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 focus:outline-none focus:border-violet-500 font-mono [color-scheme:dark]"
                       />
                       <p className="text-[9px] text-slate-500 mt-1">
                         💡 หากไม่กรอก ระบบจะใช้วันที่บันทึกข้อมูลวันนี้เป็นค่าเริ่มต้น
@@ -856,7 +926,7 @@ export default function AdminPage() {
                           value={itemImage}
                           onChange={(e) => setItemImage(e.target.value)}
                           placeholder="เช่น /images/elden-ring.png หรือ https://..."
-                          className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 font-mono"
+                          className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500 font-mono"
                         />
                       </div>
 
@@ -867,7 +937,7 @@ export default function AdminPage() {
                           value={itemBgGradient}
                           onChange={(e) => setItemBgGradient(e.target.value)}
                           placeholder="เช่น from-rose-950/40 via-red-950/20 to-slate-950"
-                          className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500 font-mono"
+                          className="w-full h-9.5 px-3 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 focus:outline-none focus:border-violet-500 font-mono"
                         />
                       </div>
                     </div>
@@ -879,7 +949,7 @@ export default function AdminPage() {
                         <select
                           value={itemHighlightLanguage}
                           onChange={(e) => setItemHighlightLanguage(e.target.value)}
-                          className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-violet-500"
+                          className="w-full h-9.5 px-2 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 focus:outline-none focus:border-violet-500"
                         >
                           <option value="json">JSON</option>
                           <option value="yaml">YAML</option>
@@ -897,7 +967,7 @@ export default function AdminPage() {
                           value={itemHighlightCode}
                           onChange={(e) => setItemHighlightCode(e.target.value)}
                           placeholder={itemHighlightLanguage === "json" ? `{\n  "systemRequirements": {\n    "os": "Windows 10/11",\n    "gpu": "RTX 3060"\n  }\n}` : `requirements:\n  os: "Windows 10/11"\n  gpu: "RTX 3060"`}
-                          className="w-full p-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
+                          className="w-full p-3.5 rounded-xl bg-slate-900 border border-white/[0.08] text-base md:text-xs text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-violet-500"
                         />
                       </div>
                     </div>
@@ -911,13 +981,13 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setShowItemModal(false)}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all bg-slate-900 hover:bg-slate-800 border border-white/5 active:scale-[0.98]"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-all bg-slate-900 hover:bg-slate-800 border border-white/5 active:scale-[0.98] cursor-pointer"
                 >
                   ยกเลิก ✕
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/20 transition-all active:scale-[0.98] shadow-md shadow-violet-950/50"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/20 transition-all active:scale-[0.98] shadow-md shadow-violet-950/50 cursor-pointer"
                 >
                   บันทึกข้อมูล 💾
                 </button>
